@@ -83,7 +83,7 @@
         <section class="admin-section" id="showcase" data-dashboard-section="showcase">
           <section class="panel">
             <div class="panel-heading">
-              <div><h2>معرض الصور</h2><p>صور للعرض تحت الـHero، من غير أسعار أو تفاصيل منتجات.</p></div>
+              <div><h2>معرض الصور</h2><p>صور للعرض في سلايدشو تحت المنتجات، من غير أسعار أو تفاصيل منتجات.</p></div>
               <span class="count-badge">{{ showcase_images|length }} صورة</span>
             </div>
             <form method="post" action="{{ url_for('modules.add_showcase_images') }}" enctype="multipart/form-data">
@@ -108,7 +108,7 @@
                 {% endfor %}
               </div>
             {% else %}
-              <div class="empty-products showcase-empty"><strong>المعرض لسه فاضي.</strong><span>الصور اللي هتضيفها هتظهر تحت الـHero مباشرةً.</span></div>
+              <div class="empty-products showcase-empty"><strong>المعرض لسه فاضي.</strong><span>الصور اللي هتضيفها هتظهر في سلايدشو تحت المنتجات.</span></div>
             {% endif %}
           </section>
         </section>

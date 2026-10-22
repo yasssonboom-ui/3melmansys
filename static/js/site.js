@@ -204,6 +204,52 @@ document.querySelectorAll("[data-product-gallery]").forEach((gallery) => {
   }, 4200);
 });
 
+document.querySelectorAll("[data-photo-showcase]").forEach((track) => {
+  const slides = [...track.querySelectorAll(".photo-showcase-item")];
+  const previousButton = document.querySelector("[data-showcase-prev]");
+  const nextButton = document.querySelector("[data-showcase-next]");
+  const status = document.querySelector("[data-showcase-status]");
+  if (slides.length < 2 || !previousButton || !nextButton || !status) {
+    return;
+  }
+
+  let activeIndex = 0;
+  let scrollFrame = 0;
+  const updateControls = () => {
+    status.textContent = `${activeIndex + 1} / ${slides.length}`;
+    previousButton.disabled = activeIndex === 0;
+    nextButton.disabled = activeIndex === slides.length - 1;
+  };
+  const updateActiveSlide = () => {
+    scrollFrame = 0;
+    const trackCenter = track.getBoundingClientRect().left + track.clientWidth / 2;
+    activeIndex = slides.reduce((closestIndex, slide, index) => {
+      const slideCenter = slide.getBoundingClientRect().left + slide.clientWidth / 2;
+      const closestCenter = slides[closestIndex].getBoundingClientRect().left + slides[closestIndex].clientWidth / 2;
+      return Math.abs(slideCenter - trackCenter) < Math.abs(closestCenter - trackCenter) ? index : closestIndex;
+    }, 0);
+    updateControls();
+  };
+  const scrollToSlide = (index) => {
+    activeIndex = Math.max(0, Math.min(slides.length - 1, index));
+    updateControls();
+    slides[activeIndex].scrollIntoView({
+      behavior: prefersReducedMotion ? "auto" : "smooth",
+      block: "nearest",
+      inline: "center",
+    });
+  };
+
+  previousButton.addEventListener("click", () => scrollToSlide(activeIndex - 1));
+  nextButton.addEventListener("click", () => scrollToSlide(activeIndex + 1));
+  track.addEventListener("scroll", () => {
+    if (!scrollFrame) {
+      scrollFrame = window.requestAnimationFrame(updateActiveSlide);
+    }
+  }, { passive: true });
+  updateControls();
+});
+
 if (menuToggle && mobileNavigation) {
   const closeMenu = () => {
     menuToggle.setAttribute("aria-expanded", "false");
