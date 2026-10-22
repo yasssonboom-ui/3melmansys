@@ -206,19 +206,17 @@ document.querySelectorAll("[data-product-gallery]").forEach((gallery) => {
 
 document.querySelectorAll("[data-photo-showcase]").forEach((track) => {
   const slides = [...track.querySelectorAll(".photo-showcase-item")];
-  const previousButton = document.querySelector("[data-showcase-prev]");
-  const nextButton = document.querySelector("[data-showcase-next]");
   const status = document.querySelector("[data-showcase-status]");
-  if (slides.length < 2 || !previousButton || !nextButton || !status) {
+  const showcase = track.closest(".photo-showcase");
+  if (slides.length < 2 || !status) {
     return;
   }
 
   let activeIndex = 0;
   let scrollFrame = 0;
-  const updateControls = () => {
+  let autoplayInterval;
+  const updateStatus = () => {
     status.textContent = `${activeIndex + 1} / ${slides.length}`;
-    previousButton.disabled = activeIndex === 0;
-    nextButton.disabled = activeIndex === slides.length - 1;
   };
   const updateActiveSlide = () => {
     scrollFrame = 0;
@@ -228,26 +226,47 @@ document.querySelectorAll("[data-photo-showcase]").forEach((track) => {
       const closestCenter = slides[closestIndex].getBoundingClientRect().left + slides[closestIndex].clientWidth / 2;
       return Math.abs(slideCenter - trackCenter) < Math.abs(closestCenter - trackCenter) ? index : closestIndex;
     }, 0);
-    updateControls();
+    updateStatus();
   };
   const scrollToSlide = (index) => {
     activeIndex = Math.max(0, Math.min(slides.length - 1, index));
-    updateControls();
+    updateStatus();
     slides[activeIndex].scrollIntoView({
       behavior: prefersReducedMotion ? "auto" : "smooth",
       block: "nearest",
       inline: "center",
     });
   };
+  const stopAutoplay = () => {
+    window.clearInterval(autoplayInterval);
+    autoplayInterval = undefined;
+  };
+  const startAutoplay = () => {
+    stopAutoplay();
+    if (prefersReducedMotion || document.hidden || showcase?.matches(":hover") || showcase?.contains(document.activeElement)) {
+      return;
+    }
+    autoplayInterval = window.setInterval(() => {
+      scrollToSlide((activeIndex + 1) % slides.length);
+    }, 3000);
+  };
 
-  previousButton.addEventListener("click", () => scrollToSlide(activeIndex - 1));
-  nextButton.addEventListener("click", () => scrollToSlide(activeIndex + 1));
+  showcase?.addEventListener("pointerenter", stopAutoplay);
+  showcase?.addEventListener("pointerleave", startAutoplay);
+  showcase?.addEventListener("focusin", stopAutoplay);
+  showcase?.addEventListener("focusout", (event) => {
+    if (!showcase.contains(event.relatedTarget)) {
+      startAutoplay();
+    }
+  });
+  document.addEventListener("visibilitychange", startAutoplay);
   track.addEventListener("scroll", () => {
     if (!scrollFrame) {
       scrollFrame = window.requestAnimationFrame(updateActiveSlide);
     }
   }, { passive: true });
-  updateControls();
+  updateStatus();
+  startAutoplay();
 });
 
 if (menuToggle && mobileNavigation) {

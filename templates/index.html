@@ -54,6 +54,28 @@
     </div>
   </section>
 
+  {% if showcase_images %}
+    <section class="container photo-showcase reveal" aria-label="صور من اختيارات 3M">
+      <div class="photo-showcase-heading">
+        <div>
+          <h2>مميز</h2>
+        </div>
+        {% if showcase_images|length > 1 %}
+          <div class="photo-showcase-controls">
+            <span data-showcase-status aria-live="polite">1 / {{ showcase_images|length }}</span>
+          </div>
+        {% endif %}
+      </div>
+      <div class="photo-showcase-track" data-photo-showcase tabindex="0" aria-label="اسحب أو استخدم الأسهم للتنقل بين الصور">
+        {% for image in showcase_images %}
+          <div class="photo-showcase-item" role="group" aria-label="الصورة {{ loop.index }} من {{ loop.length }}">
+            <img src="{{ image.image_url }}" alt="صورة من اختيارات 3M" loading="lazy" decoding="async">
+          </div>
+        {% endfor %}
+      </div>
+    </section>
+  {% endif %}
+
   <section class="container section reveal" id="collection">
     <div class="section-heading">
       <div>
@@ -145,30 +167,6 @@
       </div>
     {% endif %}
   </section>
-
-  {% if showcase_images %}
-    <section class="container photo-showcase reveal" aria-label="صور من اختيارات 3M">
-      <div class="photo-showcase-heading">
-        <div>
-          <h2>مميز</h2>
-        </div>
-        {% if showcase_images|length > 1 %}
-          <div class="photo-showcase-controls">
-            <span data-showcase-status aria-live="polite">1 / {{ showcase_images|length }}</span>
-            <button class="photo-showcase-control" type="button" data-showcase-prev aria-label="الصورة السابقة" disabled>→</button>
-            <button class="photo-showcase-control" type="button" data-showcase-next aria-label="الصورة التالية">←</button>
-          </div>
-        {% endif %}
-      </div>
-      <div class="photo-showcase-track" data-photo-showcase tabindex="0" aria-label="اسحب أو استخدم الأسهم للتنقل بين الصور">
-        {% for image in showcase_images %}
-          <div class="photo-showcase-item" role="group" aria-label="الصورة {{ loop.index }} من {{ loop.length }}">
-            <img src="{{ image.image_url }}" alt="صورة من اختيارات 3M" loading="lazy" decoding="async">
-          </div>
-        {% endfor %}
-      </div>
-    </section>
-  {% endif %}
 
   <section class="container benefits reveal" aria-label="ما يميزنا">
     <article class="benefit">
