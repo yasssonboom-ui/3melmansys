@@ -148,6 +148,13 @@ class ProductImage(Base):
     product = relationship("Product", back_populates="images")
 
 
+class ShowcaseImage(Base):
+    __tablename__ = "showcase_images"
+
+    id = Column(Integer, primary_key=True)
+    image_url = Column(String(500), nullable=False)
+
+
 class CartAddition(Base):
     __tablename__ = "cart_additions"
 
@@ -327,7 +334,13 @@ def home():
     with SessionLocal() as db:
         categories = db.scalars(select(Category).order_by(Category.name)).all()
         products = db.scalars(select(Product).order_by(Product.id.desc())).all()
-        return render_template("index.html", categories=categories, products=products)
+        showcase_images = db.scalars(select(ShowcaseImage).order_by(ShowcaseImage.id)).all()
+        return render_template(
+            "index.html",
+            categories=categories,
+            products=products,
+            showcase_images=showcase_images,
+        )
 
 
 @modules.get("/product/<int:product_id>")
@@ -672,6 +685,7 @@ def admin_dashboard():
     with SessionLocal() as db:
         categories = db.scalars(select(Category).order_by(Category.name)).all()
         products = db.scalars(select(Product).order_by(Product.id.desc())).all()
+        showcase_images = db.scalars(select(ShowcaseImage).order_by(ShowcaseImage.id)).all()
         customer_orders = db.scalars(
             select(CustomerOrder).order_by(CustomerOrder.created_at.desc(), CustomerOrder.id.desc())
         ).all()
@@ -691,6 +705,7 @@ def admin_dashboard():
             "admin/dashboard.html",
             categories=categories,
             products=products,
+            showcase_images=showcase_images,
             customer_orders=customer_orders,
             contact_messages=contact_messages,
             order_status_labels={
@@ -702,6 +717,80 @@ def admin_dashboard():
             admin=admin,
             dashboard_stats=dashboard_stats,
         )
+
+
+@modules.post("/admin/showcase")
+@admin_required
+def add_showcase_images():
+    image_files = [image for image in request.files.getlist("images") if image.filename]
+    if not image_files:
+        flash("اختار صورة واحدة على الأقل علشان تضيفها للمعرض.", "error")
+        return redirect(url_for("modules.admin_dashboard", _anchor="showcase"))
+    if len(image_files) > 8:
+        flash("ارفع 8 صور أو أقل في كل مرة.", "error")
+        return redirect(url_for("modules.admin_dashboard", _anchor="showcase"))
+
+    uploaded_filenames = [parse_uploaded_image(image_file) for image_file in image_files]
+    if any(filename is None for filename in uploaded_filenames):
+        flash("كل الصور لازم تكون JPG أو PNG أو GIF أو WEBP، وحجم الصورة الواحدة 5 ميجابايت أو أقل.", "error")
+        return redirect(url_for("modules.admin_dashboard", _anchor="showcase"))
+
+    upload_directory = os.path.join(current_app.static_folder, "uploads")
+    os.makedirs(upload_directory, exist_ok=True)
+    saved_paths = []
+    try:
+        with SessionLocal() as db:
+            for image_file, filename in zip(image_files, uploaded_filenames):
+                upload_path = os.path.join(upload_directory, filename)
+                image_file.save(upload_path)
+                saved_paths.append(upload_path)
+                db.add(ShowcaseImage(image_url=f"/static/uploads/{filename}"))
+            db.commit()
+    except OSError:
+        for upload_path in saved_paths:
+            if os.path.isfile(upload_path):
+                os.remove(upload_path)
+        current_app.logger.exception("Could not save an image for the storefront showcase")
+        flash("ماقدرناش نحفظ الصور. جرّب تاني.", "error")
+        return redirect(url_for("modules.admin_dashboard", _anchor="showcase"))
+    except SQLAlchemyError:
+        for upload_path in saved_paths:
+            if os.path.isfile(upload_path):
+                os.remove(upload_path)
+        raise
+
+    flash(f"ضفنا {len(image_files)} صورة لمعرض الصور.", "success")
+    return redirect(url_for("modules.admin_dashboard", _anchor="showcase"))
+
+
+@modules.post("/admin/showcase/<int:image_id>/delete")
+@admin_required
+def delete_showcase_image(image_id):
+    with SessionLocal() as db:
+        image = db.get(ShowcaseImage, image_id)
+        if image is None:
+            abort(404)
+        image_url = image.image_url
+        db.delete(image)
+        db.commit()
+
+    if image_url.startswith("/static/uploads/"):
+        uploaded_filename = os.path.basename(image_url)
+        upload_path = os.path.join(current_app.static_folder, "uploads", uploaded_filename)
+        if os.path.isfile(upload_path):
+            try:
+                os.remove(upload_path)
+            except OSError:
+                current_app.logger.warning(
+                    "Could not remove a deleted storefront showcase image: %s",
+                    uploaded_filename,
+                    exc_info=True,
+                )
+                flash("اتحذفت الصورة من المعرض، لكن ماقدرناش نمسح ملفها من التخزين.", "error")
+                return redirect(url_for("modules.admin_dashboard", _anchor="showcase"))
+
+    flash("اتحذفت الصورة من المعرض.", "success")
+    return redirect(url_for("modules.admin_dashboard", _anchor="showcase"))
 
 
 @modules.post("/admin/categories")

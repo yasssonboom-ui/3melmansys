@@ -89,6 +89,12 @@ button, .button { cursor: pointer; }
 @keyframes hero-glow { from { transform: translate3d(-24px, 12px, 0) scale(.92); } to { transform: translate3d(38px, 42px, 0) scale(1.12); } }
 @keyframes hero-orbit { from { transform: rotate(0deg) translateY(0); } to { transform: rotate(360deg) translateY(-12px); } }
 
+.photo-showcase { margin-top: -34px; padding-bottom: 66px; }
+.photo-showcase-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap: 14px; }
+.photo-showcase-item { overflow: hidden; aspect-ratio: 4 / 3; background: var(--brown-100); border: 1px solid var(--line); border-radius: 13px; }
+.photo-showcase-item img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform 1.2s cubic-bezier(.2,.7,.2,1); }
+.photo-showcase-item:hover img { transform: scale(1.045); }
+
 .benefits { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; padding: 0 0 74px; }
 .benefit { display: flex; align-items: center; gap: 14px; padding: 17px 20px; background: white; border: 1px solid var(--line); border-radius: 12px; transition: transform .65s cubic-bezier(.2,.7,.2,1), border-color .65s, box-shadow .65s; }
 .benefit:hover { transform: translateY(-4px); border-color: var(--brown-200); box-shadow: 0 12px 28px rgba(70,43,24,.08); }
@@ -327,6 +333,11 @@ button, .button { cursor: pointer; }
 .product-image-choices label { display: grid; justify-items: center; gap: 4px; padding: 6px; color: var(--muted); border: 1px solid var(--line); border-radius: 7px; font-size: 9px; cursor: pointer; }
 .product-image-choices img { width: 65px; height: 65px; object-fit: cover; border-radius: 5px; }
 .product-image-choices input { accent-color: var(--brown-800); }
+.showcase-admin-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: 10px; margin-top: 20px; }
+.showcase-admin-item { display: grid; align-content: start; gap: 8px; min-width: 0; padding: 8px; border: 1px solid var(--line); border-radius: 9px; }
+.showcase-admin-item img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 6px; }
+.showcase-admin-item .button { justify-self: start; }
+.showcase-empty { margin-top: 18px; }
 .product-pricing-form { display: flex; align-items: end; flex-wrap: wrap; gap: 8px; padding-top: 9px; border-top: 1px solid var(--line); }
 .product-pricing-form label { display: grid; gap: 3px; color: var(--muted); font-size: 9px; font-weight: 700; }
 .product-pricing-form input { width: 110px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; font-size: 11px; }

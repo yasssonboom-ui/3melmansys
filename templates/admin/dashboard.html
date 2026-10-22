@@ -35,6 +35,7 @@
       <nav class="admin-sidebar" id="admin-sidebar" aria-label="أقسام لوحة التحكم">
         <span class="admin-sidebar-label">القائمة الرئيسية</span>
         <a href="#overview" data-dashboard-link="overview"><span aria-hidden="true">⌂</span> الرئيسية</a>
+        <a href="#showcase" data-dashboard-link="showcase"><span aria-hidden="true">▧</span> معرض الصور</a>
         <a href="#products" data-dashboard-link="products"><span aria-hidden="true">▣</span> المنتجات</a>
         <a href="#categories" data-dashboard-link="categories"><span aria-hidden="true">▤</span> الأقسام</a>
         <a href="#orders" data-dashboard-link="orders"><span aria-hidden="true">▣</span> الطلبات</a>
@@ -77,6 +78,39 @@
             <h2>ابدأ من هنا</h2>
             <p>اختار قسم من القائمة علشان تدير منتجاتك وأقسامك وطلباتك ورسايل العملاء.</p>
           </div>
+        </section>
+
+        <section class="admin-section" id="showcase" data-dashboard-section="showcase">
+          <section class="panel">
+            <div class="panel-heading">
+              <div><h2>معرض الصور</h2><p>صور للعرض تحت الـHero، من غير أسعار أو تفاصيل منتجات.</p></div>
+              <span class="count-badge">{{ showcase_images|length }} صورة</span>
+            </div>
+            <form method="post" action="{{ url_for('modules.add_showcase_images') }}" enctype="multipart/form-data">
+              <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+              <div class="field">
+                <label for="showcase-images">صور المعرض</label>
+                <input id="showcase-images" name="images" type="file" accept="image/png,image/jpeg,image/gif,image/webp" multiple required>
+                <span class="field-hint">اختار لحد 8 صور في المرة. JPG أو PNG أو GIF أو WEBP، وكل صورة لحد 5 ميجابايت.</span>
+              </div>
+              <button class="button button-primary form-submit" type="submit">ضيف الصور <span aria-hidden="true">+</span></button>
+            </form>
+            {% if showcase_images %}
+              <div class="showcase-admin-grid">
+                {% for image in showcase_images %}
+                  <article class="showcase-admin-item">
+                    <img src="{{ image.image_url }}" alt="صورة من معرض المتجر" loading="lazy" decoding="async">
+                    <form method="post" action="{{ url_for('modules.delete_showcase_image', image_id=image.id) }}" onsubmit="return confirm('متأكد إنك عايز تحذف الصورة دي من المعرض؟');">
+                      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                      <button class="button button-danger button-small" type="submit">احذف الصورة</button>
+                    </form>
+                  </article>
+                {% endfor %}
+              </div>
+            {% else %}
+              <div class="empty-products showcase-empty"><strong>المعرض لسه فاضي.</strong><span>الصور اللي هتضيفها هتظهر تحت الـHero مباشرةً.</span></div>
+            {% endif %}
+          </section>
         </section>
 
         <section class="admin-section" id="products" data-dashboard-section="products">

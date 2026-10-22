@@ -54,6 +54,18 @@
     </div>
   </section>
 
+  {% if showcase_images %}
+    <section class="container photo-showcase reveal" aria-label="صور من اختيارات 3M">
+      <div class="photo-showcase-grid">
+        {% for image in showcase_images %}
+          <div class="photo-showcase-item">
+            <img src="{{ image.image_url }}" alt="صورة من اختيارات 3M" loading="lazy" decoding="async">
+          </div>
+        {% endfor %}
+      </div>
+    </section>
+  {% endif %}
+
   <section class="container section reveal" id="collection">
     <div class="section-heading">
       <div>
