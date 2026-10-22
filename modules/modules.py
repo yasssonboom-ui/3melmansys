@@ -19,7 +19,7 @@ from flask import (
     session,
     url_for,
 )
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, Numeric, String, Text, create_engine, inspect, select
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, Numeric, String, Text, create_engine, func, inspect, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -146,6 +146,13 @@ class ProductImage(Base):
     product_id = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"), nullable=False)
     image_url = Column(String(500), nullable=False)
     product = relationship("Product", back_populates="images")
+
+
+class CartAddition(Base):
+    __tablename__ = "cart_additions"
+
+    visitor_id = Column(String(32), primary_key=True)
+    added_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 
 
 class Admin(Base):
@@ -323,6 +330,15 @@ def home():
         return render_template("index.html", categories=categories, products=products)
 
 
+@modules.get("/product/<int:product_id>")
+def product_detail(product_id):
+    with SessionLocal() as db:
+        product = db.get(Product, product_id)
+        if product is None:
+            abort(404)
+        return render_template("product_detail.html", product=product)
+
+
 @modules.get("/category/<int:category_id>")
 def category_page(category_id):
     with SessionLocal() as db:
@@ -430,7 +446,7 @@ def add_to_cart(product_id):
         selected_options = selected_product_options(product, request.form)
         if selected_options is None:
             flash("اختار كل مواصفات المنتج الأول.", "error")
-            return redirect(url_for("modules.home", _anchor="collection"))
+            return redirect(url_for("modules.product_detail", product_id=product_id))
         cart = session.get("cart", {})
         cart_key = make_cart_key(product_id, selected_options)
         current_quantity = cart.get(cart_key, 0)
@@ -443,6 +459,13 @@ def add_to_cart(product_id):
         else:
             cart[cart_key] = current_quantity + 1
             session["cart"] = cart
+            visitor_id = session.get("cart_visitor_id")
+            if visitor_id is None:
+                visitor_id = uuid.uuid4().hex
+                session["cart_visitor_id"] = visitor_id
+            if db.get(CartAddition, visitor_id) is None:
+                db.add(CartAddition(visitor_id=visitor_id))
+                db.commit()
             flash(f'ضفنا "{product.name}" لسلتك.', "success")
     next_url = request.form.get("next", "")
     if next_url.startswith("/") and not next_url.startswith("//") and "\\" not in next_url:
@@ -486,7 +509,7 @@ def buy_now(product_id):
         selected_options = selected_product_options(product, request.form)
         if selected_options is None:
             flash("اختار كل مواصفات المنتج الأول.", "error")
-            return redirect(url_for("modules.home", _anchor="collection"))
+            return redirect(url_for("modules.product_detail", product_id=product_id))
     return redirect(url_for(
         "modules.checkout",
         product_id=product_id,
@@ -656,6 +679,14 @@ def admin_dashboard():
             select(ContactMessage).order_by(ContactMessage.created_at.desc(), ContactMessage.id.desc())
         ).all()
         admin = db.get(Admin, session["admin_id"])
+        dashboard_stats = {
+            "cart_adders": db.scalar(select(func.count(CartAddition.visitor_id))) or 0,
+            "buyers": db.scalar(
+                select(func.count(func.distinct(CustomerOrder.phone))).where(CustomerOrder.status == "completed")
+            ) or 0,
+            "orders": len(customer_orders),
+            "products": len(products),
+        }
         return render_template(
             "admin/dashboard.html",
             categories=categories,
@@ -669,6 +700,7 @@ def admin_dashboard():
                 "cancelled": "اتلغى",
             },
             admin=admin,
+            dashboard_stats=dashboard_stats,
         )
 
 
@@ -678,7 +710,7 @@ def create_category():
     name = request.form.get("name", "").strip()
     if not name or len(name) > 80:
         flash("اكتب اسم القسم، وخليه من حرف لحد 80 حرف.", "error")
-        return redirect(url_for("modules.admin_dashboard"))
+        return redirect(url_for("modules.admin_dashboard", _anchor="categories"))
     with SessionLocal() as db:
         existing = db.scalar(select(Category).where(Category.name.ilike(name)))
         if existing:
@@ -687,7 +719,7 @@ def create_category():
             db.add(Category(name=name))
             db.commit()
             flash(f'ضفنا قسم "{name}" للمتجر.', "success")
-    return redirect(url_for("modules.admin_dashboard"))
+    return redirect(url_for("modules.admin_dashboard", _anchor="categories"))
 
 
 @modules.post("/admin/products")
@@ -702,21 +734,21 @@ def create_product():
     raw_category_id = request.form.get("category_id", "").strip()
     if not name or len(name) > 120:
         flash("اكتب اسم المنتج، وخليه من حرف لحد 120 حرف.", "error")
-        return redirect(url_for("modules.admin_dashboard"))
+        return redirect(url_for("modules.admin_dashboard", _anchor="products"))
     if len(description) > 3000:
         flash("وصف المنتج طويل أكتر من اللازم.", "error")
-        return redirect(url_for("modules.admin_dashboard"))
+        return redirect(url_for("modules.admin_dashboard", _anchor="products"))
     option_definitions = parse_option_definitions(raw_options)
     if option_definitions is None:
         flash("اكتب كل اختيار بالشكل ده: المقاس: صغير، متوسط، كبير. بحد أقصى 10 اختيارات.", "error")
-        return redirect(url_for("modules.admin_dashboard"))
+        return redirect(url_for("modules.admin_dashboard", _anchor="products"))
     try:
         price = Decimal(raw_price)
         if not price.is_finite() or price < 0 or price > Decimal("99999999.99"):
             raise InvalidOperation
     except (InvalidOperation, ValueError):
         flash("اكتب سعر صحيح، ولازم يكون صفر أو أكتر.", "error")
-        return redirect(url_for("modules.admin_dashboard"))
+        return redirect(url_for("modules.admin_dashboard", _anchor="products"))
     sale_price = None
     if raw_sale_price:
         try:
@@ -725,16 +757,16 @@ def create_product():
                 raise InvalidOperation
         except (InvalidOperation, ValueError):
             flash("سعر العرض لازم يكون أكبر من صفر وأقل من السعر الأساسي.", "error")
-            return redirect(url_for("modules.admin_dashboard"))
+            return redirect(url_for("modules.admin_dashboard", _anchor="products"))
     if len(image_files) > 8:
         flash("ارفع 8 صور أو أقل للمنتج الواحد.", "error")
-        return redirect(url_for("modules.admin_dashboard"))
+        return redirect(url_for("modules.admin_dashboard", _anchor="products"))
     uploaded_filenames = []
     for image_file in image_files:
         uploaded_filename = parse_uploaded_image(image_file)
         if uploaded_filename is None:
             flash("كل الصور لازم تكون JPG أو PNG أو GIF أو WEBP، وحجم الصورة الواحدة 5 ميجابايت أو أقل.", "error")
-            return redirect(url_for("modules.admin_dashboard"))
+            return redirect(url_for("modules.admin_dashboard", _anchor="products"))
         uploaded_filenames.append(uploaded_filename)
     category_id = None
     if raw_category_id:
@@ -742,12 +774,12 @@ def create_product():
             category_id = int(raw_category_id)
         except ValueError:
             flash("اختار قسم صحيح.", "error")
-            return redirect(url_for("modules.admin_dashboard"))
+            return redirect(url_for("modules.admin_dashboard", _anchor="products"))
     with SessionLocal() as db:
         category = db.get(Category, category_id) if category_id is not None else None
         if category_id is not None and category is None:
             flash("اختار قسم صحيح.", "error")
-            return redirect(url_for("modules.admin_dashboard"))
+            return redirect(url_for("modules.admin_dashboard", _anchor="products"))
         upload_directory = os.path.join(current_app.static_folder, "uploads")
         os.makedirs(upload_directory, exist_ok=True)
         saved_paths = []
@@ -774,7 +806,122 @@ def create_product():
                     os.remove(upload_path)
             raise
     flash(f'ضفنا "{name}" للمتجر.', "success")
-    return redirect(url_for("modules.admin_dashboard"))
+    return redirect(url_for("modules.admin_dashboard", _anchor="products"))
+
+
+@modules.post("/admin/products/<int:product_id>/edit")
+@admin_required
+def update_product(product_id):
+    name = request.form.get("name", "").strip()
+    description = request.form.get("description", "").strip()
+    raw_price = request.form.get("price", "").strip()
+    raw_sale_price = request.form.get("sale_price", "").strip()
+    raw_category_id = request.form.get("category_id", "").strip()
+    option_definitions = parse_option_definitions(request.form.get("options", "").strip())
+    image_files = [image for image in request.files.getlist("images") if image.filename]
+    remove_image_urls = set(request.form.getlist("remove_images"))
+
+    if not name or len(name) > 120:
+        flash("اكتب اسم المنتج، وخليه من حرف لحد 120 حرف.", "error")
+        return redirect(url_for("modules.admin_dashboard", _anchor="products"))
+    if len(description) > 3000:
+        flash("وصف المنتج طويل أكتر من اللازم.", "error")
+        return redirect(url_for("modules.admin_dashboard", _anchor="products"))
+    if option_definitions is None:
+        flash("اكتب كل اختيار بالشكل ده: المقاس: صغير، متوسط، كبير. بحد أقصى 10 اختيارات.", "error")
+        return redirect(url_for("modules.admin_dashboard", _anchor="products"))
+    try:
+        price = Decimal(raw_price)
+        if not price.is_finite() or price < 0 or price > Decimal("99999999.99"):
+            raise InvalidOperation
+    except (InvalidOperation, ValueError):
+        flash("اكتب سعر صحيح، ولازم يكون صفر أو أكتر.", "error")
+        return redirect(url_for("modules.admin_dashboard", _anchor="products"))
+    sale_price = None
+    if raw_sale_price:
+        try:
+            sale_price = Decimal(raw_sale_price)
+            if not sale_price.is_finite() or sale_price <= 0 or sale_price >= price:
+                raise InvalidOperation
+        except (InvalidOperation, ValueError):
+            flash("سعر العرض لازم يكون أكبر من صفر وأقل من السعر الأساسي.", "error")
+            return redirect(url_for("modules.admin_dashboard", _anchor="products"))
+    if len(image_files) > 8:
+        flash("ارفع 8 صور أو أقل للمنتج الواحد.", "error")
+        return redirect(url_for("modules.admin_dashboard", _anchor="products"))
+    uploaded_filenames = []
+    for image_file in image_files:
+        uploaded_filename = parse_uploaded_image(image_file)
+        if uploaded_filename is None:
+            flash("كل الصور لازم تكون JPG أو PNG أو GIF أو WEBP، وحجم الصورة الواحدة 5 ميجابايت أو أقل.", "error")
+            return redirect(url_for("modules.admin_dashboard", _anchor="products"))
+        uploaded_filenames.append(uploaded_filename)
+    category_id = None
+    if raw_category_id:
+        try:
+            category_id = int(raw_category_id)
+        except ValueError:
+            flash("اختار قسم صحيح.", "error")
+            return redirect(url_for("modules.admin_dashboard", _anchor="products"))
+
+    saved_paths = []
+    removed_image_urls = []
+    with SessionLocal() as db:
+        product = db.get(Product, product_id)
+        if product is None:
+            abort(404)
+        category = db.get(Category, category_id) if category_id is not None else None
+        if category_id is not None and category is None:
+            flash("اختار قسم صحيح.", "error")
+            return redirect(url_for("modules.admin_dashboard", _anchor="products"))
+        current_image_urls = product.gallery_images
+        if not remove_image_urls.issubset(set(current_image_urls)):
+            flash("فيه صورة مش معروفة للاحتفاظ أو الحذف. حدّث الصفحة وجرب تاني.", "error")
+            return redirect(url_for("modules.admin_dashboard", _anchor="products"))
+        retained_image_urls = [url for url in current_image_urls if url not in remove_image_urls]
+        if len(retained_image_urls) + len(uploaded_filenames) > 8:
+            flash("إجمالي صور المنتج لازم يكون 8 أو أقل. احذف صور قديمة أو قلّل الصور الجديدة.", "error")
+            return redirect(url_for("modules.admin_dashboard", _anchor="products"))
+
+        product.name = name
+        product.description = description
+        product.price = price
+        product.sale_price = sale_price
+        product.category = category
+        product.options_json = json.dumps(option_definitions, ensure_ascii=False)
+        product.image_url = retained_image_urls[0] if retained_image_urls else ""
+        product.images[:] = [
+            image for image in product.images
+            if image.image_url in retained_image_urls and image.image_url != product.image_url
+        ]
+
+        upload_directory = os.path.join(current_app.static_folder, "uploads")
+        os.makedirs(upload_directory, exist_ok=True)
+        for image_file, filename in zip(image_files, uploaded_filenames):
+            upload_path = os.path.join(upload_directory, filename)
+            image_file.save(upload_path)
+            saved_paths.append(upload_path)
+            product.images.append(ProductImage(image_url=f"/static/uploads/{filename}"))
+        try:
+            db.commit()
+            removed_image_urls = list(remove_image_urls)
+        except SQLAlchemyError:
+            for upload_path in saved_paths:
+                if os.path.isfile(upload_path):
+                    os.remove(upload_path)
+            raise
+
+    for image_url in removed_image_urls:
+        if image_url.startswith("/static/uploads/"):
+            uploaded_filename = os.path.basename(image_url)
+            upload_path = os.path.join(current_app.static_folder, "uploads", uploaded_filename)
+            if os.path.isfile(upload_path):
+                try:
+                    os.remove(upload_path)
+                except PermissionError:
+                    current_app.logger.warning("Could not remove an edited product image because it is in use: %s", uploaded_filename)
+    flash(f'حدّثنا بيانات "{name}" بنجاح.', "success")
+    return redirect(url_for("modules.admin_dashboard", _anchor="products"))
 
 
 @modules.post("/admin/products/<int:product_id>/pricing")
@@ -788,7 +935,7 @@ def update_product_pricing(product_id):
             raise InvalidOperation
     except (InvalidOperation, ValueError):
         flash("اكتب سعر صحيح، ولازم يكون صفر أو أكتر.", "error")
-        return redirect(url_for("modules.admin_dashboard"))
+        return redirect(url_for("modules.admin_dashboard", _anchor="products"))
     sale_price = None
     if raw_sale_price:
         try:
@@ -797,7 +944,7 @@ def update_product_pricing(product_id):
                 raise InvalidOperation
         except (InvalidOperation, ValueError):
             flash("سعر العرض لازم يكون أكبر من صفر وأقل من السعر الأساسي.", "error")
-            return redirect(url_for("modules.admin_dashboard"))
+            return redirect(url_for("modules.admin_dashboard", _anchor="products"))
     with SessionLocal() as db:
         product = db.get(Product, product_id)
         if product is None:
@@ -806,7 +953,7 @@ def update_product_pricing(product_id):
         product.sale_price = sale_price
         db.commit()
     flash("حدّثنا سعر المنتج والعرض بنجاح.", "success")
-    return redirect(url_for("modules.admin_dashboard"))
+    return redirect(url_for("modules.admin_dashboard", _anchor="products"))
 
 
 @modules.post("/admin/orders/<int:order_id>/status")
@@ -816,7 +963,7 @@ def update_order_status(order_id):
     valid_statuses = {"new", "processing", "completed", "cancelled"}
     if status not in valid_statuses:
         flash("اختار حالة طلب صحيحة.", "error")
-        return redirect(url_for("modules.admin_dashboard"))
+        return redirect(url_for("modules.admin_dashboard", _anchor="orders"))
     with SessionLocal() as db:
         order = db.get(CustomerOrder, order_id)
         if order is None:
@@ -824,7 +971,20 @@ def update_order_status(order_id):
         order.status = status
         db.commit()
     flash("حدّثنا حالة الطلب.", "success")
-    return redirect(url_for("modules.admin_dashboard"))
+    return redirect(url_for("modules.admin_dashboard", _anchor="orders"))
+
+
+@modules.post("/admin/orders/<int:order_id>/delete")
+@admin_required
+def delete_customer_order(order_id):
+    with SessionLocal() as db:
+        order = db.get(CustomerOrder, order_id)
+        if order is None:
+            abort(404)
+        db.delete(order)
+        db.commit()
+    flash("اتحذف الطلب وبنوده بنجاح.", "success")
+    return redirect(url_for("modules.admin_dashboard", _anchor="orders"))
 
 
 @modules.post("/admin/products/<int:product_id>/delete")
@@ -837,7 +997,7 @@ def delete_product(product_id):
         has_orders = db.scalar(select(Order.id).where(Order.product_id == product_id).limit(1))
         if has_orders:
             flash("مش هينفع تمسح منتج عليه طلبات سابقة. تقدر توقف العرض بتاعه بدل كده.", "error")
-            return redirect(url_for("modules.admin_dashboard"))
+            return redirect(url_for("modules.admin_dashboard", _anchor="products"))
         image_urls = product.gallery_images
         db.delete(product)
         db.commit()
@@ -851,7 +1011,7 @@ def delete_product(product_id):
                 except PermissionError:
                     current_app.logger.warning("Could not remove an uploaded product image because it is in use: %s", uploaded_filename)
     flash("مسحنا المنتج من المتجر.", "success")
-    return redirect(url_for("modules.admin_dashboard"))
+    return redirect(url_for("modules.admin_dashboard", _anchor="products"))
 
 
 @modules.post("/admin/categories/<int:category_id>/delete")
@@ -866,7 +1026,7 @@ def delete_category(category_id):
         db.delete(category)
         db.commit()
     flash("مسحنا القسم، والمنتجات بتاعته لسه موجودة في المتجر.", "success")
-    return redirect(url_for("modules.admin_dashboard"))
+    return redirect(url_for("modules.admin_dashboard", _anchor="categories"))
 
 
 @modules.post("/admin/account")
@@ -877,22 +1037,22 @@ def update_admin_account():
     current_password = request.form.get("current_password", "")
     if "@" not in email or len(email) > 254:
         flash("اكتب إيميل صحيح.", "error")
-        return redirect(url_for("modules.admin_dashboard"))
+        return redirect(url_for("modules.admin_dashboard", _anchor="settings"))
     if new_password and len(new_password) < 8:
         flash("الباسورد الجديد لازم يكون 8 حروف على الأقل.", "error")
-        return redirect(url_for("modules.admin_dashboard"))
+        return redirect(url_for("modules.admin_dashboard", _anchor="settings"))
     with SessionLocal() as db:
         admin = db.get(Admin, session["admin_id"])
         if admin is None or not check_password_hash(admin.password_hash, current_password):
             flash("اكتب الباسورد الحالي علشان نحفظ التغييرات.", "error")
-            return redirect(url_for("modules.admin_dashboard"))
+            return redirect(url_for("modules.admin_dashboard", _anchor="settings"))
         duplicate = db.scalar(select(Admin).where(Admin.email == email, Admin.id != admin.id))
         if duplicate:
             flash("الإيميل ده مستخدم بالفعل.", "error")
-            return redirect(url_for("modules.admin_dashboard"))
+            return redirect(url_for("modules.admin_dashboard", _anchor="settings"))
         admin.email = email
         if new_password:
             admin.password_hash = generate_password_hash(new_password)
         db.commit()
     flash("حدّثنا بيانات حسابك بنجاح.", "success")
-    return redirect(url_for("modules.admin_dashboard"))
+    return redirect(url_for("modules.admin_dashboard", _anchor="settings"))

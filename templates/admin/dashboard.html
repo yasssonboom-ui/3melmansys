@@ -28,17 +28,58 @@
       {% endif %}
     {% endwith %}
 
-    <div class="admin-title">
-      <div>
-        <span class="eyebrow">متجرك، على مزاجك</span>
-        <h1>صباح الفل.</h1>
-        <p>ضيف منتجاتك، ورتّب الأقسام، وخلي متجرك دايماً مميز.</p>
-      </div>
-      <a class="button button-light" href="{{ url_for('modules.home') }}" target="_blank" rel="noopener">شوف المتجر ↗</a>
-    </div>
+    <button class="admin-menu-toggle" type="button" data-admin-menu-toggle aria-expanded="false" aria-controls="admin-sidebar">
+      <span aria-hidden="true">☰</span> أقسام لوحة التحكم
+    </button>
+    <div class="admin-shell">
+      <nav class="admin-sidebar" id="admin-sidebar" aria-label="أقسام لوحة التحكم">
+        <span class="admin-sidebar-label">القائمة الرئيسية</span>
+        <a href="#overview" data-dashboard-link="overview"><span aria-hidden="true">⌂</span> الرئيسية</a>
+        <a href="#products" data-dashboard-link="products"><span aria-hidden="true">▣</span> المنتجات</a>
+        <a href="#categories" data-dashboard-link="categories"><span aria-hidden="true">▤</span> الأقسام</a>
+        <a href="#orders" data-dashboard-link="orders"><span aria-hidden="true">▣</span> الطلبات</a>
+        <a href="#messages" data-dashboard-link="messages"><span aria-hidden="true">✉</span> رسايل العملاء</a>
+        <a href="#settings" data-dashboard-link="settings"><span aria-hidden="true">⚙</span> بيانات الحساب</a>
+      </nav>
+      <div class="admin-content">
+        <section class="admin-section is-active" id="overview" data-dashboard-section="overview">
+          <div class="admin-title">
+            <div>
+              <span class="eyebrow">متجرك، على مزاجك</span>
+              <h1>صباح الفل.</h1>
+              <p>دي لمحة سريعة عن حركة متجرك وطلبات العملاء.</p>
+            </div>
+            <a class="button button-light" href="{{ url_for('modules.home') }}" target="_blank" rel="noopener">شوف المتجر ↗</a>
+          </div>
+          <div class="dashboard-stats">
+            <article class="dashboard-stat">
+              <span>عملاء ضافوا للسلة</span>
+              <strong>{{ dashboard_stats.cart_adders }}</strong>
+              <small>جلسات متصفح مختلفة من بداية التتبع</small>
+            </article>
+            <article class="dashboard-stat">
+              <span>عملاء استلموا طلباتهم</span>
+              <strong>{{ dashboard_stats.buyers }}</strong>
+              <small>عملاء فريدون بحالة طلب «اتسلم»</small>
+            </article>
+            <article class="dashboard-stat">
+              <span>كل الطلبات</span>
+              <strong>{{ dashboard_stats.orders }}</strong>
+              <small>طلبات محفوظة في المتجر</small>
+            </article>
+            <article class="dashboard-stat">
+              <span>منتجات المتجر</span>
+              <strong>{{ dashboard_stats.products }}</strong>
+              <small>منتجات متاحة للإدارة</small>
+            </article>
+          </div>
+          <div class="panel dashboard-welcome">
+            <h2>ابدأ من هنا</h2>
+            <p>اختار قسم من القائمة علشان تدير منتجاتك وأقسامك وطلباتك ورسايل العملاء.</p>
+          </div>
+        </section>
 
-    <div class="admin-grid">
-      <div class="admin-column">
+        <section class="admin-section" id="products" data-dashboard-section="products">
         <section class="panel">
           <div class="panel-heading">
             <div><h2>ضيف منتج جديد</h2><p>ضيف حاجة جديدة لمجموعة 3M.</p></div>
@@ -88,6 +129,9 @@
           </form>
         </section>
 
+        </section>
+
+        <section class="admin-section" id="messages" data-dashboard-section="messages">
         <section class="panel">
           <div class="panel-heading">
             <div><h2>رسايل العملاء</h2><p>كل الاستفسارات اللي اتبعتت من صفحة كلمنا.</p></div>
@@ -114,6 +158,9 @@
           {% endif %}
         </section>
 
+        </section>
+
+        <section class="admin-section" id="orders" data-dashboard-section="orders">
         <section class="panel">
           <div class="panel-heading">
             <div><h2>طلبات العملاء</h2><p>بيانات العملاء والمنتجات وحالة كل طلب.</p></div>
@@ -157,16 +204,22 @@
                   </div>
                   <div class="order-card-footer">
                     <strong>الإجمالي: {{ "{:,.2f}".format(order_total.value) }} ج.م</strong>
-                    <form class="order-status-form" method="post" action="{{ url_for('modules.update_order_status', order_id=order.id) }}">
-                      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-                      <label class="sr-only" for="order-status-{{ order.id }}">حالة الطلب</label>
-                      <select id="order-status-{{ order.id }}" name="status">
-                        {% for status, label in order_status_labels.items() %}
-                          <option value="{{ status }}"{% if order.status == status %} selected{% endif %}>{{ label }}</option>
-                        {% endfor %}
-                      </select>
-                      <button class="button button-light button-small" type="submit">حدّث الحالة</button>
-                    </form>
+                    <div class="order-admin-actions">
+                      <form class="order-status-form" method="post" action="{{ url_for('modules.update_order_status', order_id=order.id) }}">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                        <label class="sr-only" for="order-status-{{ order.id }}">حالة الطلب</label>
+                        <select id="order-status-{{ order.id }}" name="status">
+                          {% for status, label in order_status_labels.items() %}
+                            <option value="{{ status }}"{% if order.status == status %} selected{% endif %}>{{ label }}</option>
+                          {% endfor %}
+                        </select>
+                        <button class="button button-light button-small" type="submit">حدّث الحالة</button>
+                      </form>
+                      <form method="post" action="{{ url_for('modules.delete_customer_order', order_id=order.id) }}" onsubmit="return confirm('هتحذف الطلب ده وكل تفاصيله نهائيًا. متأكد؟');">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                        <button class="button button-danger button-small" type="submit">احذف الطلب</button>
+                      </form>
+                    </div>
                   </div>
                 </article>
               {% endfor %}
@@ -176,6 +229,9 @@
           {% endif %}
         </section>
 
+        </section>
+
+        <section class="admin-section" id="product-list" data-dashboard-section="products">
         <section class="panel">
           <div class="panel-heading">
             <div><h2>منتجات المتجر</h2><p>المنتجات بتظهر في المتجر أول ما تضيفها.</p></div>
@@ -196,12 +252,63 @@
                     <button class="text-button" type="submit">امسح</button>
                   </form>
                   </div>
-                  <form class="product-pricing-form" method="post" action="{{ url_for('modules.update_product_pricing', product_id=product.id) }}">
-                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-                    <label>السعر <input name="price" type="number" min="0" max="99999999.99" step="0.01" value="{{ '%.2f'|format(product.price) }}" required></label>
-                    <label>سعر العرض <input name="sale_price" type="number" min="0.01" max="99999999.99" step="0.01" value="{{ '%.2f'|format(product.sale_price) if product.sale_price else '' }}" placeholder="من غير عرض"></label>
-                    <button class="button button-light button-small" type="submit">احفظ السعر</button>
-                  </form>
+                  <details class="product-edit-details">
+                    <summary>تعديل بيانات المنتج</summary>
+                    <form class="product-edit-form" method="post" action="{{ url_for('modules.update_product', product_id=product.id) }}" enctype="multipart/form-data">
+                      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                      <div class="form-grid">
+                        <div class="field">
+                          <label for="edit-product-name-{{ product.id }}">اسم المنتج</label>
+                          <input id="edit-product-name-{{ product.id }}" name="name" maxlength="120" value="{{ product.name }}" required>
+                        </div>
+                        <div class="field">
+                          <label for="edit-product-price-{{ product.id }}">السعر (جنيه)</label>
+                          <input id="edit-product-price-{{ product.id }}" name="price" type="number" min="0" max="99999999.99" step="0.01" value="{{ '%.2f'|format(product.price) }}" required>
+                        </div>
+                        <div class="field">
+                          <label for="edit-product-sale-{{ product.id }}">سعر العرض</label>
+                          <input id="edit-product-sale-{{ product.id }}" name="sale_price" type="number" min="0.01" max="99999999.99" step="0.01" value="{{ '%.2f'|format(product.sale_price) if product.sale_price else '' }}" placeholder="من غير عرض">
+                        </div>
+                        <div class="field">
+                          <label for="edit-product-category-{{ product.id }}">القسم</label>
+                          <select id="edit-product-category-{{ product.id }}" name="category_id">
+                            <option value="">من غير قسم</option>
+                            {% for category in categories %}
+                              <option value="{{ category.id }}"{% if product.category_id == category.id %} selected{% endif %}>{{ category.name }}</option>
+                            {% endfor %}
+                          </select>
+                        </div>
+                        <div class="field full">
+                          <label for="edit-product-options-{{ product.id }}">اختيارات المنتج</label>
+                          <textarea id="edit-product-options-{{ product.id }}" name="options" maxlength="3000" placeholder="المقاس: صغير، متوسط، كبير">{% for option in product.option_definitions %}{{ option.name }}: {{ option["values"]|join(", ") }}{% if not loop.last %}&#10;{% endif %}{% endfor %}</textarea>
+                          <span class="field-hint">كل اختيار في سطر، والقيم مفصولة بفاصلة.</span>
+                        </div>
+                        <div class="field full">
+                          <label for="edit-product-description-{{ product.id }}">وصف المنتج</label>
+                          <textarea id="edit-product-description-{{ product.id }}" name="description" maxlength="3000">{{ product.description }}</textarea>
+                        </div>
+                        {% if product.gallery_images %}
+                          <fieldset class="field full product-image-removal">
+                            <legend>الصور الحالية <span class="field-hint">(علّم على الصور اللي عايز تحذفها)</span></legend>
+                            <div class="product-image-choices">
+                              {% for image_url in product.gallery_images %}
+                                <label>
+                                  <img src="{{ image_url }}" alt="صورة {{ product.name }} رقم {{ loop.index }}" loading="lazy" decoding="async">
+                                  <input type="checkbox" name="remove_images" value="{{ image_url }}">
+                                  <span>حذف الصورة {{ loop.index }}</span>
+                                </label>
+                              {% endfor %}
+                            </div>
+                          </fieldset>
+                        {% endif %}
+                        <div class="field full">
+                          <label for="edit-product-images-{{ product.id }}">إضافة صور جديدة <span class="field-hint">(الإجمالي 8 صور كحد أقصى)</span></label>
+                          <input id="edit-product-images-{{ product.id }}" name="images" type="file" accept="image/png,image/jpeg,image/gif,image/webp" multiple>
+                        </div>
+                      </div>
+                      <button class="button button-primary button-small" type="submit">احفظ التعديلات</button>
+                    </form>
+                  </details>
                 </div>
               {% endfor %}
             </div>
@@ -209,9 +316,9 @@
             <div class="empty-products"><strong>يلا ضيف أول منتج لمجموعتك.</strong><span>استخدم النموذج اللي فوق علشان يظهر في المتجر.</span></div>
           {% endif %}
         </section>
-      </div>
+        </section>
 
-      <aside class="admin-column">
+        <section class="admin-section" id="categories" data-dashboard-section="categories">
         <section class="panel">
           <div class="panel-heading">
             <div><h2>الأقسام</h2><p>رتّب منتجاتك في أقسام واضحة.</p></div>
@@ -239,6 +346,9 @@
           </form>
         </section>
 
+        </section>
+
+        <section class="admin-section" id="settings" data-dashboard-section="settings">
         <section class="panel">
           <div class="panel-heading">
             <div><h2>بيانات الحساب</h2><p>غيّر الإيميل أو الباسورد بتوعك.</p></div>
@@ -260,7 +370,8 @@
             <button class="button button-primary button-small" type="submit">احفظ التغييرات</button>
           </form>
         </section>
-      </aside>
+        </section>
+      </div>
     </div>
   </main>
 </div>

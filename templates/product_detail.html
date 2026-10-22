@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% block title %}{{ product.name }} — 3M | elmansygroups{% endblock %}
+{% block head %}
+  <meta name="description" content="{{ (product.description or 'اختيار مميز من مجموعة 3M.')|striptags|truncate(160, true, '…') }}">
+  <meta property="og:title" content="{{ product.name }} — 3M | elmansygroups">
+  <meta property="og:description" content="{{ (product.description or 'اختيار مميز من مجموعة 3M.')|striptags|truncate(160, true, '…') }}">
+  {% if product.gallery_images %}<meta property="og:image" content="{{ request.url_root.rstrip('/') }}{{ product.gallery_images[0] }}">{% endif %}
+{% endblock %}
+{% block body %}
+<div class="announcement">اختيارات على ذوقك · تفاصيل أحلى كل يوم</div>
+<header class="site-header">
+  <div class="container nav">
+    <a class="brand" href="{{ url_for('modules.home') }}" aria-label="الرئيسية - 3M elmansygroups">
+      <img class="site-logo" src="{{ url_for('static', filename='icon/logo.png') }}" alt="3M" width="58" height="48" decoding="async">
+      <span class="brand-copy"><strong>elmansygroups</strong><small>جودة على قدّ الثقة</small></span>
+    </a>
+    <nav class="nav-links" aria-label="التنقل الرئيسي">
+      <a href="{{ url_for('modules.home') }}">الرئيسية</a>
+      <a href="{{ url_for('modules.home') }}#collection">منتجاتنا</a>
+      <a href="{{ url_for('modules.home') }}#about">حكايتنا</a>
+      <a href="{{ url_for('modules.contact') }}">كلمنا</a>
+    </nav>
+    <div class="nav-actions">
+      <a class="cart-link" href="{{ url_for('modules.view_cart') }}" aria-label="سلة المشتريات، {{ cart_count }} منتجات">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 4h2l2.1 10.1a2 2 0 0 0 2 1.6h8.7a2 2 0 0 0 2-1.6L21 8H6"/><circle cx="10" cy="20" r="1.25"/><circle cx="18" cy="20" r="1.25"/></svg>
+        <span>السلة</span>
+        <span class="cart-count">{{ cart_count }}</span>
+      </a>
+      <a class="nav-admin" href="{{ url_for('modules.admin_login') }}"><span>تسجيل الدخول</span></a>
+      <button class="menu-toggle" type="button" aria-label="افتح القائمة" aria-expanded="false" aria-controls="site-navigation">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </div>
+  <nav class="mobile-nav-links" id="site-navigation" aria-label="التنقل الرئيسي">
+    <a href="{{ url_for('modules.home') }}">الرئيسية</a>
+    <a href="{{ url_for('modules.home') }}#collection">منتجاتنا</a>
+    <a href="{{ url_for('modules.home') }}#about">حكايتنا</a>
+    <a href="{{ url_for('modules.contact') }}">كلمنا</a>
+  </nav>
+</header>
+
+<main class="container product-detail-page">
+  <nav class="product-detail-breadcrumb" aria-label="مسار الصفحة">
+    <a href="{{ url_for('modules.home') }}">الرئيسية</a>
+    <span aria-hidden="true">/</span>
+    {% if product.category %}
+      <a href="{{ url_for('modules.category_page', category_id=product.category.id) }}">{{ product.category.name }}</a>
+      <span aria-hidden="true">/</span>
+    {% endif %}
+    <span aria-current="page">{{ product.name }}</span>
+  </nav>
+
+  <div class="product-detail-layout">
+    <section class="product-detail-gallery" aria-label="صور {{ product.name }}">
+      {% if product.gallery_images %}
+        {% for image_url in product.gallery_images %}
+          <figure class="product-detail-image{% if loop.first %} product-detail-image-featured{% endif %}">
+            <img src="{{ image_url }}" alt="{{ product.name }} - صورة {{ loop.index }}" decoding="async"{% if loop.first %} fetchpriority="high"{% else %} loading="lazy"{% endif %}>
+            <figcaption>صورة {{ loop.index }} من {{ loop.length }}</figcaption>
+          </figure>
+        {% endfor %}
+      {% else %}
+        <div class="product-detail-placeholder"><span aria-hidden="true">3M</span><small>مفيش صور مضافة للمنتج لسه</small></div>
+      {% endif %}
+    </section>
+
+    <section class="product-detail-summary">
+      <span class="product-detail-category">{{ product.category.name if product.category else 'اختيارات 3M' }}</span>
+      {% if product.sale_price and product.sale_price > 0 and product.sale_price < product.price %}
+        <span class="product-detail-offer">عرض خاص</span>
+      {% endif %}
+      <h1>{{ product.name }}</h1>
+      <div class="product-detail-prices">
+        {% if product.sale_price and product.sale_price > 0 and product.sale_price < product.price %}
+          <strong>{{ "{:,.2f}".format(product.sale_price) }} ج.م</strong>
+          <del>{{ "{:,.2f}".format(product.price) }} ج.م</del>
+        {% else %}
+          <strong>{{ "{:,.2f}".format(product.price) }} ج.م</strong>
+        {% endif %}
+      </div>
+      <section class="product-detail-description" aria-labelledby="product-description-title">
+        <div class="product-detail-description-heading">
+          <span class="product-description-icon" aria-hidden="true">✦</span>
+          <div>
+            <span>كل التفاصيل</span>
+            <h2 id="product-description-title">عن المنتج</h2>
+          </div>
+        </div>
+        <p class="product-detail-description-copy">{{ product.description or 'اختيار مميز ضفناه لمجموعتنا مخصوص عشانك.' }}</p>
+      </section>
+
+      <form class="product-detail-purchase" method="post" action="{{ url_for('modules.add_to_cart', product_id=product.id) }}">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="next" value="{{ url_for('modules.product_detail', product_id=product.id) }}">
+        {% for option in product.option_definitions %}
+          <label class="product-option">
+            <span>{{ option.name }}</span>
+            <select name="option_{{ loop.index0 }}" required>
+              <option value="">اختار {{ option.name }}</option>
+              {% for value in option["values"] %}
+                <option value="{{ value }}">{{ value }}</option>
+              {% endfor %}
+            </select>
+          </label>
+        {% endfor %}
+        <div class="product-detail-actions">
+          <button class="button button-primary" type="submit" formaction="{{ url_for('modules.add_to_cart', product_id=product.id) }}">
+            <span aria-hidden="true">+</span> ضيف للسلة
+          </button>
+          <button class="button button-light" type="submit" formaction="{{ url_for('modules.buy_now', product_id=product.id) }}">
+            اطلب دلوقتي
+          </button>
+        </div>
+      </form>
+      <a class="product-detail-back" href="{{ url_for('modules.home', _anchor='collection') }}">رجوع لكل المنتجات</a>
+    </section>
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="container footer-inner">
+    <a class="brand" href="{{ url_for('modules.home') }}">
+      <span class="brand-mark">3M</span>
+      <span class="brand-copy"><strong>elmansygroups</strong><small>جودة على قدّ الثقة</small></span>
+    </a>
+    <span class="footer-note">© {{ now_year }} 3M | elmansygroups. كل الحقوق محفوظة.</span>
+    <div class="footer-social">
+      <a class="footer-link" href="https://www.instagram.com/3m_elmansygroup?utm_source=qr&amp;cplk=OWpjY3dxOGNqcmJv" target="_blank" rel="noopener noreferrer">إنستجرام</a>
+      <a class="footer-link" href="https://www.facebook.com/share/1Ey17ak8J4/" target="_blank" rel="noopener noreferrer">فيسبوك</a>
+      <a class="footer-link" href="mailto:elmansygroups@gmail.com">كلّمنا</a>
+      <a class="footer-link" href="mailto:mahmoudhamay8@gmail.com">الدعم والملاحظات</a>
+    </div>
+  </div>
+</footer>
+<a class="whatsapp-widget" href="https://wa.me/message/VDSCLAQZWEMYH1" target="_blank" rel="noopener noreferrer" aria-label="راسلنا على واتساب">
+  <svg viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+    <path d="M16.02 3C8.85 3 3.02 8.81 3.02 15.96c0 2.29.6 4.53 1.74 6.51L3 29l6.71-1.73a13.06 13.06 0 0 0 6.3 1.61h.01c7.17 0 13-5.81 13-12.96A12.88 12.88 0 0 0 25.2 6.7 12.94 12.94 0 0 0 16.02 3Zm0 23.67h-.01a10.8 10.8 0 0 1-5.5-1.5l-.4-.24-3.98 1.03 1.06-3.86-.26-.4a10.67 10.67 0 0 1-1.65-5.74c0-5.93 4.83-10.75 10.77-10.75 2.87 0 5.57 1.12 7.6 3.15a10.66 10.66 0 0 1 3.16 7.59c0 5.93-4.83 10.75-10.78 10.75Zm5.91-8.05c-.32-.16-1.9-.93-2.19-1.04-.29-.1-.5-.16-.7.16-.21.31-.8 1.04-.98 1.25-.18.21-.36.24-.67.08-.31-.16-1.33-.49-2.54-1.57-.94-.83-1.57-1.86-1.75-2.17-.18-.31-.02-.48.14-.64.14-.14.31-.36.47-.54.16-.18.21-.31.31-.52.1-.21.05-.39-.03-.55-.08-.16-.7-1.68-.96-2.3-.25-.6-.5-.52-.7-.53h-.6c-.21 0-.55.08-.83.39-.29.31-1.1 1.07-1.1 2.59s1.13 3.01 1.29 3.22c.16.21 2.22 3.38 5.37 4.74.75.32 1.33.51 1.79.66.75.24 1.44.21 1.98.13.6-.09 1.9-.78 2.17-1.53.27-.75.27-1.4.19-1.53-.08-.13-.29-.21-.6-.36Z"/>
+  </svg>
+  <span>راسلنا على واتساب</span>
+</a>
+{% endblock %}

@@ -5,7 +5,7 @@
 <header class="site-header">
   <div class="container nav">
     <a class="brand" href="{{ url_for('modules.home') }}" aria-label="الرئيسية - 3M elmansygroups">
-      <img class="site-logo" src="{{ url_for('static', filename='icon/logo.png') }}" alt="3M">
+      <img class="site-logo" src="{{ url_for('static', filename='icon/logo.png') }}" alt="3M" width="58" height="48" decoding="async">
       <span class="brand-copy"><strong>elmansygroups</strong><small>جودة على قدّ الثقة</small></span>
     </a>
     <nav class="nav-links" aria-label="التنقل الرئيسي">
@@ -54,21 +54,6 @@
     </div>
   </section>
 
-  <section class="container benefits reveal" aria-label="ما يميزنا">
-    <article class="benefit">
-      <span class="benefit-icon" aria-hidden="true">✦</span>
-      <span><strong>بنختارها بعناية</strong><small>منتجات مميزة وجودة تقدر تعتمد عليها</small></span>
-    </article>
-    <article class="benefit">
-      <span class="benefit-icon" aria-hidden="true">♡</span>
-      <span><strong>على قد يومك</strong><small>حاجات عملية بتسهّل عليك كل يوم</small></span>
-    </article>
-    <article class="benefit">
-      <span class="benefit-icon" aria-hidden="true">✧</span>
-      <span><strong>تجربة تسوق أريح</strong><small>خدمتنا واهتمامنا بكل تفصيلة</small></span>
-    </article>
-  </section>
-
   <section class="container section reveal" id="collection">
     <div class="section-heading">
       <div>
@@ -99,7 +84,7 @@
               {% if product.gallery_images %}
                 <div class="product-gallery" data-product-gallery aria-label="صور {{ product.name }}">
                   {% for image_url in product.gallery_images %}
-                    <img src="{{ image_url }}" alt="{{ product.name }} - صورة {{ loop.index }}" loading="lazy"{% if loop.first %} class="is-active"{% else %} aria-hidden="true"{% endif %}>
+                    <img src="{{ image_url }}" alt="{{ product.name }} - صورة {{ loop.index }}" loading="lazy" decoding="async"{% if loop.first %} class="is-active"{% else %} aria-hidden="true"{% endif %}>
                   {% endfor %}
                 </div>
               {% else %}
@@ -112,7 +97,14 @@
             <div class="product-info">
               <span class="product-category">{{ product.category.name if product.category else 'اختيارات 3M' }}</span>
               <h3>{{ product.name }}</h3>
-              <p>{{ product.description or 'اختيار مميز ضفناه لمجموعتنا مخصوص عشانك.' }}</p>
+              {% set product_description = product.description or 'اختيار مميز ضفناه لمجموعتنا مخصوص عشانك.' %}
+              <p class="product-description-preview">{{ product_description|truncate(110, true, '…') }}</p>
+              {% if product_description|length > 110 %}
+                <details class="product-description-details">
+                  <summary><span>شوف أكتر</span></summary>
+                  <div class="product-description-full">{{ product_description }}</div>
+                </details>
+              {% endif %}
               <div class="product-price-row">
                 {% if product.sale_price and product.sale_price > 0 and product.sale_price < product.price %}
                   <strong class="product-price product-sale-price">{{ "{:,.2f}".format(product.sale_price) }} ج.م</strong>
@@ -139,7 +131,7 @@
                   <button class="button button-primary add-to-cart-button" type="submit" formaction="{{ url_for('modules.add_to_cart', product_id=product.id) }}">
                     <span aria-hidden="true">+</span> ضيف للسلة
                   </button>
-                  <button class="button button-light add-to-cart-button" type="submit" formaction="{{ url_for('modules.buy_now', product_id=product.id) }}">اطلب دلوقتي</button>
+                  <a class="button button-light add-to-cart-button" href="{{ url_for('modules.product_detail', product_id=product.id) }}">اطلب دلوقتي</a>
                 </div>
               </form>
             </div>
@@ -152,6 +144,21 @@
         <span>{% if active_category %}تابعنا، هنضيف منتجات جديدة للقسم ده قريب.{% else %}بنجهّزلك مجموعة مميزة. تعالى زورنا قريب.{% endif %}</span>
       </div>
     {% endif %}
+  </section>
+
+  <section class="container benefits reveal" aria-label="ما يميزنا">
+    <article class="benefit">
+      <span class="benefit-icon" aria-hidden="true">✦</span>
+      <span><strong>بنختارها بعناية</strong><small>منتجات مميزة وجودة تقدر تعتمد عليها</small></span>
+    </article>
+    <article class="benefit">
+      <span class="benefit-icon" aria-hidden="true">♡</span>
+      <span><strong>على قد يومك</strong><small>حاجات عملية بتسهّل عليك كل يوم</small></span>
+    </article>
+    <article class="benefit">
+      <span class="benefit-icon" aria-hidden="true">✧</span>
+      <span><strong>تجربة تسوق أريح</strong><small>خدمتنا واهتمامنا بكل تفصيلة</small></span>
+    </article>
   </section>
 
   <section class="container story reveal" id="about">
