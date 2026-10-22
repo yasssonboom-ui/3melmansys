@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}إتمام الطلب — 3M | elmansygroups{% endblock %}
+{% block body %}
+<div class="announcement">اختيارات على ذوقك · تفاصيل أحلى كل يوم</div>
+<header class="site-header">
+  <div class="container nav">
+    <a class="brand" href="{{ url_for('modules.home') }}" aria-label="الرئيسية - 3M elmansygroups">
+      <img class="site-logo" src="{{ url_for('static', filename='icon/logo.png') }}" alt="3M">
+      <span class="brand-copy"><strong>elmansygroups</strong><small>جودة على قدّ الثقة</small></span>
+    </a>
+    <nav class="nav-links" aria-label="التنقل الرئيسي">
+      <a href="{{ url_for('modules.home') }}">الرئيسية</a>
+      <a href="{{ url_for('modules.home') }}#collection">منتجاتنا</a>
+      <a href="{{ url_for('modules.home') }}#about">حكايتنا</a>
+      <a href="{{ url_for('modules.contact') }}">كلمنا</a>
+    </nav>
+    <div class="nav-actions">
+      <a class="cart-link" href="{{ url_for('modules.view_cart') }}" aria-label="سلة المشتريات، {{ cart_count }} منتجات">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 4h2l2.1 10.1a2 2 0 0 0 2 1.6h8.7a2 2 0 0 0 2-1.6L21 8H6"/><circle cx="10" cy="20" r="1.25"/><circle cx="18" cy="20" r="1.25"/></svg>
+        <span>السلة</span><span class="cart-count">{{ cart_count }}</span>
+      </a>
+      <a class="nav-admin" href="{{ url_for('modules.admin_login') }}"><span>تسجيل الدخول</span></a>
+      <button class="menu-toggle" type="button" aria-label="افتح القائمة" aria-expanded="false" aria-controls="site-navigation">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </div>
+  <nav class="mobile-nav-links" id="site-navigation" aria-label="التنقل الرئيسي">
+    <a href="{{ url_for('modules.home') }}">الرئيسية</a>
+    <a href="{{ url_for('modules.home') }}#collection">منتجاتنا</a>
+    <a href="{{ url_for('modules.home') }}#about">حكايتنا</a>
+    <a href="{{ url_for('modules.contact') }}">كلمنا</a>
+  </nav>
+</header>
+
+<main class="container checkout-page">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="flash-messages">
+        {% for category, message in messages %}
+          <div class="flash {{ category }}">{{ message }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+  <div class="cart-heading">
+    <span class="eyebrow">خطوة واحدة وتبقى حاجتك عندك</span>
+    <h1>بيانات التوصيل</h1>
+    <p>اكتب بياناتك وعنوانك، وهنكلمك لتأكيد الطلب.</p>
+  </div>
+  <div class="checkout-layout">
+    <section class="panel checkout-panel">
+      <h2>بياناتك</h2>
+      <form class="checkout-form" method="post" action="{{ url_for('modules.checkout') }}">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        {% if direct_product_id %}
+          <input type="hidden" name="product_id" value="{{ direct_product_id }}">
+          <input type="hidden" name="selected_options" value="{{ direct_selected_options|tojson|forceescape }}">
+        {% endif %}
+        <div class="field">
+          <label for="customer-name">اسمك بالكامل</label>
+          <input id="customer-name" name="customer_name" maxlength="120" autocomplete="name" placeholder="اكتب اسمك" value="{{ request.form.get('customer_name', '') }}" required>
+        </div>
+        <div class="field">
+          <label for="customer-phone">رقم الموبايل</label>
+          <input id="customer-phone" name="phone" type="tel" maxlength="24" autocomplete="tel" inputmode="tel" dir="ltr" placeholder="01xxxxxxxxx" value="{{ request.form.get('phone', '') }}" required>
+        </div>
+        <div class="field">
+          <label for="customer-address">عنوان التوصيل بالتفصيل</label>
+          <textarea id="customer-address" name="address" maxlength="500" autocomplete="street-address" placeholder="المحافظة، المنطقة، الشارع، رقم العمارة والشقة وأي علامة مميزة" required>{{ request.form.get('address', '') }}</textarea>
+        </div>
+        <button class="button button-primary checkout-submit" type="submit">تأكيد الطلب <span aria-hidden="true">←</span></button>
+      </form>
+    </section>
+    <aside class="cart-summary checkout-summary">
+      <h2>ملخص طلبك</h2>
+      {% for item in checkout_items %}
+        <div class="checkout-item">
+          <span>{{ item.product.name }} <small>× {{ item.quantity }}</small></span>
+          <strong>{{ "{:,.2f}".format(item.product.current_price * item.quantity) }} ج.م</strong>
+        </div>
+        {% if item.selected_options %}
+          <div class="checkout-item-options">
+            {% for option_name, option_value in item.selected_options.items() %}
+              <span>{{ option_name }}: {{ option_value }}</span>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endfor %}
+      <div class="cart-summary-row cart-grand-total"><span>الإجمالي</span><strong>{{ "{:,.2f}".format(checkout_total) }} ج.م</strong></div>
+      <p>مفيش دفع أونلاين دلوقتي. هنكلمك لتأكيد الطلب والتوصيل.</p>
+    </aside>
+  </div>
+</main>
+{% endblock %}

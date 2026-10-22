@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#3b2518">
+  <meta name="description" content="اكتشف منتجات 3M | elmansygroups المختارة بعناية. تسوق منتجات مميزة، اطلب بسهولة، وتواصل معانا في أي وقت.">
+  <meta name="keywords" content="3M, elmansygroups, متجر 3M, منتجات مميزة, تسوق أونلاين, متجر مصري, عروض وخصومات, منتجات مختارة, القاهرة, مصر">
+  <title>{% block title %}3M | elmansygroups{% endblock %}</title>
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='icon/logo.png') }}">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='icon/logo.png') }}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@200..1000&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  {% block head %}{% endblock %}
+</head>
+<body>
+  {% block body %}{% endblock %}
+  <script src="{{ url_for('static', filename='js/site.js') }}" defer></script>
+</body>
+</html>

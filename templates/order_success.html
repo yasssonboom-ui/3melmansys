@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}طلبك اتسجل — 3M | elmansygroups{% endblock %}
+{% block body %}
+<main class="login-shell">
+  <section class="login-card order-success-card">
+    <span class="cart-empty-icon" aria-hidden="true">✓</span>
+    <h1>طلبك وصلنا!</h1>
+    <p>شكراً يا {{ order.customer_name }}، سجلنا طلبك بنجاح. هنكلمك على {{ order.phone }} علشان نأكد معاك تفاصيل التوصيل.</p>
+    <div class="order-reference">رقم طلبك <strong dir="ltr">#{{ order.reference }}</strong></div>
+    <a class="button button-primary" href="{{ url_for('modules.home') }}">ارجع للمتجر</a>
+  </section>
+</main>
+{% endblock %}

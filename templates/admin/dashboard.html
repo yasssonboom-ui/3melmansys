@@ -1,0 +1,267 @@
+{% extends "base.html" %}
+{% block title %}إدارة المتجر — 3M | elmansygroups{% endblock %}
+{% block body %}
+<div class="admin-page">
+  <header class="admin-topbar">
+    <div class="container admin-nav">
+      <a class="brand" href="{{ url_for('modules.home') }}">
+        <span class="brand-mark">3M</span>
+        <span class="brand-copy"><strong>elmansygroups</strong><small>متجر 3M</small></span>
+      </a>
+      <div class="admin-top-actions">
+        <span dir="ltr">{{ admin.email }}</span>
+        <form method="post" action="{{ url_for('modules.admin_logout') }}">
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+          <button class="button button-small button-light" type="submit">خروج</button>
+        </form>
+      </div>
+    </div>
+  </header>
+  <main class="container admin-main">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="flash-messages">
+          {% for category, message in messages %}
+            <div class="flash {{ category }}">{{ message }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <div class="admin-title">
+      <div>
+        <span class="eyebrow">متجرك، على مزاجك</span>
+        <h1>صباح الفل.</h1>
+        <p>ضيف منتجاتك، ورتّب الأقسام، وخلي متجرك دايماً مميز.</p>
+      </div>
+      <a class="button button-light" href="{{ url_for('modules.home') }}" target="_blank" rel="noopener">شوف المتجر ↗</a>
+    </div>
+
+    <div class="admin-grid">
+      <div class="admin-column">
+        <section class="panel">
+          <div class="panel-heading">
+            <div><h2>ضيف منتج جديد</h2><p>ضيف حاجة جديدة لمجموعة 3M.</p></div>
+            <span class="count-badge">{{ products|length }} منتج</span>
+          </div>
+          <form method="post" action="{{ url_for('modules.create_product') }}" enctype="multipart/form-data">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <div class="form-grid">
+              <div class="field">
+                <label for="product-name">اسم المنتج</label>
+                <input id="product-name" name="name" maxlength="120" placeholder="مثال: شنطة شيك لكل يوم" required>
+              </div>
+              <div class="field">
+                <label for="product-price">السعر (جنيه)</label>
+                <input id="product-price" name="price" type="number" min="0" max="99999999.99" step="0.01" placeholder="0.00" required>
+              </div>
+              <div class="field">
+                <label for="product-sale-price">سعر العرض <span class="field-hint">(اختياري)</span></label>
+                <input id="product-sale-price" name="sale_price" type="number" min="0.01" max="99999999.99" step="0.01" placeholder="سيبه فاضي لو مفيش عرض">
+              </div>
+              <div class="field">
+                <label for="product-category">القسم</label>
+                <select id="product-category" name="category_id">
+                  <option value="">اختار القسم</option>
+                  {% for category in categories %}
+                    <option value="{{ category.id }}">{{ category.name }}</option>
+                  {% endfor %}
+                </select>
+                {% if not categories %}<span class="field-hint">ضيف قسم الأول، أو سيب الخانة فاضية.</span>{% endif %}
+              </div>
+              <div class="field">
+                <label for="product-images">صور المنتج <span class="field-hint">(اختياري، لحد 8 صور)</span></label>
+                <input id="product-images" name="images" type="file" accept="image/png,image/jpeg,image/gif,image/webp" multiple>
+                <span class="field-hint">اختار كذا صورة من جهازك. JPG أو PNG أو GIF أو WEBP، كل صورة لحد 5 ميجابايت.</span>
+              </div>
+              <div class="field full">
+                <label for="product-options">اختيارات المنتج <span class="field-hint">(اختياري)</span></label>
+                <textarea id="product-options" name="options" maxlength="3000" placeholder="المقاس: صغير، متوسط، كبير&#10;اللون: أسود، أبيض، بني&#10;اكتب كل اختيار في سطر لوحده"></textarea>
+                <span class="field-hint">اكتب اسم الاختيار وبعده نقطتين والقيم مفصولة بفاصلة. العميل هيختار منها قبل ما يضيف المنتج أو يطلبه.</span>
+              </div>
+              <div class="field full">
+                <label for="product-description">وصف المنتج</label>
+                <textarea id="product-description" name="description" maxlength="3000" placeholder="قولنا إيه اللي مميز في المنتج ده؟"></textarea>
+              </div>
+            </div>
+            <button class="button button-primary form-submit" type="submit">ضيف المنتج <span aria-hidden="true">+</span></button>
+          </form>
+        </section>
+
+        <section class="panel">
+          <div class="panel-heading">
+            <div><h2>رسايل العملاء</h2><p>كل الاستفسارات اللي اتبعتت من صفحة كلمنا.</p></div>
+            <span class="count-badge">{{ contact_messages|length }} رسالة</span>
+          </div>
+          {% if contact_messages %}
+            <div class="contact-messages-list">
+              {% for message in contact_messages %}
+                <article class="contact-message-card">
+                  <div class="contact-message-heading">
+                    <strong>{{ message.name }}</strong>
+                    <time datetime="{{ message.created_at.isoformat() }}">{{ message.created_at.strftime('%Y-%m-%d %H:%M') }}</time>
+                  </div>
+                  <div class="contact-message-reach">
+                    <a href="mailto:{{ message.email }}" dir="ltr">{{ message.email }}</a>
+                    {% if message.phone %}<a href="tel:{{ message.phone }}" dir="ltr">{{ message.phone }}</a>{% endif %}
+                  </div>
+                  <p>{{ message.message }}</p>
+                </article>
+              {% endfor %}
+            </div>
+          {% else %}
+            <div class="empty-products"><strong>لسه مفيش رسايل.</strong><span>أي رسالة جديدة هتظهر هنا ببيانات صاحبها.</span></div>
+          {% endif %}
+        </section>
+
+        <section class="panel">
+          <div class="panel-heading">
+            <div><h2>طلبات العملاء</h2><p>بيانات العملاء والمنتجات وحالة كل طلب.</p></div>
+            <span class="count-badge">{{ customer_orders|length }} طلب</span>
+          </div>
+          {% if customer_orders %}
+            <div class="orders-list">
+              {% for order in customer_orders %}
+                <article class="order-card">
+                  <div class="order-card-heading">
+                    <div>
+                      <strong>طلب #{{ order.reference }}</strong>
+                      <small>{{ order.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                    </div>
+                    <span class="order-status order-status-{{ order.status }}">{{ order_status_labels.get(order.status, order.status) }}</span>
+                  </div>
+                  <div class="order-customer-details">
+                    <strong>{{ order.customer_name }}</strong>
+                    <a href="tel:{{ order.phone }}" dir="ltr">{{ order.phone }}</a>
+                    <p>{{ order.address }}</p>
+                  </div>
+                  <div class="order-lines">
+                    {% set order_total = namespace(value=0) %}
+                    {% for item in order.items %}
+                      {% set line_price = item.unit_price if item.unit_price is not none else (item.product.current_price if item.product else 0) %}
+                      {% set item_name = item.product_name or (item.product.name if item.product else 'منتج محذوف') %}
+                      {% set order_total.value = order_total.value + (line_price * item.quantity) %}
+                      <div class="order-line">
+                        <span>{{ item_name }} <small>× {{ item.quantity }}</small>
+                          {% if item.option_selections %}
+                            <span class="admin-order-options">
+                              {% for option_name, option_value in item.option_selections.items() %}
+                                {{ option_name }}: {{ option_value }}{% if not loop.last %}، {% endif %}
+                              {% endfor %}
+                            </span>
+                          {% endif %}
+                        </span>
+                        <strong>{{ "{:,.2f}".format(line_price * item.quantity) }} ج.م</strong>
+                      </div>
+                    {% endfor %}
+                  </div>
+                  <div class="order-card-footer">
+                    <strong>الإجمالي: {{ "{:,.2f}".format(order_total.value) }} ج.م</strong>
+                    <form class="order-status-form" method="post" action="{{ url_for('modules.update_order_status', order_id=order.id) }}">
+                      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                      <label class="sr-only" for="order-status-{{ order.id }}">حالة الطلب</label>
+                      <select id="order-status-{{ order.id }}" name="status">
+                        {% for status, label in order_status_labels.items() %}
+                          <option value="{{ status }}"{% if order.status == status %} selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                      </select>
+                      <button class="button button-light button-small" type="submit">حدّث الحالة</button>
+                    </form>
+                  </div>
+                </article>
+              {% endfor %}
+            </div>
+          {% else %}
+            <div class="empty-products"><strong>لسه مفيش طلبات.</strong><span>أي طلب جديد هيظهر هنا ببيانات العميل وتفاصيل المنتجات.</span></div>
+          {% endif %}
+        </section>
+
+        <section class="panel">
+          <div class="panel-heading">
+            <div><h2>منتجات المتجر</h2><p>المنتجات بتظهر في المتجر أول ما تضيفها.</p></div>
+            <span class="count-badge">{{ products|length }} في المتجر</span>
+          </div>
+          {% if products %}
+            <div class="product-admin-list">
+              {% for product in products %}
+                <div class="product-admin-card">
+                  <div class="product-admin-row">
+                  <div class="product-admin-meta">
+                    <strong>{{ product.name }}</strong>
+                    <small>{{ product.category.name if product.category else 'من غير قسم' }}{% if product.sale_price and product.sale_price > 0 and product.sale_price < product.price %} · عليه عرض{% endif %}</small>
+                  </div>
+                  <span class="product-admin-price">{% if product.sale_price and product.sale_price > 0 and product.sale_price < product.price %}<del>{{ "{:,.2f}".format(product.price) }}</del> {{ "{:,.2f}".format(product.sale_price) }}{% else %}{{ "{:,.2f}".format(product.price) }}{% endif %} ج.م</span>
+                  <form method="post" action="{{ url_for('modules.delete_product', product_id=product.id) }}" onsubmit="return confirm('متأكد إنك عايز تحذف المنتج ده من المتجر؟');">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                    <button class="text-button" type="submit">امسح</button>
+                  </form>
+                  </div>
+                  <form class="product-pricing-form" method="post" action="{{ url_for('modules.update_product_pricing', product_id=product.id) }}">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                    <label>السعر <input name="price" type="number" min="0" max="99999999.99" step="0.01" value="{{ '%.2f'|format(product.price) }}" required></label>
+                    <label>سعر العرض <input name="sale_price" type="number" min="0.01" max="99999999.99" step="0.01" value="{{ '%.2f'|format(product.sale_price) if product.sale_price else '' }}" placeholder="من غير عرض"></label>
+                    <button class="button button-light button-small" type="submit">احفظ السعر</button>
+                  </form>
+                </div>
+              {% endfor %}
+            </div>
+          {% else %}
+            <div class="empty-products"><strong>يلا ضيف أول منتج لمجموعتك.</strong><span>استخدم النموذج اللي فوق علشان يظهر في المتجر.</span></div>
+          {% endif %}
+        </section>
+      </div>
+
+      <aside class="admin-column">
+        <section class="panel">
+          <div class="panel-heading">
+            <div><h2>الأقسام</h2><p>رتّب منتجاتك في أقسام واضحة.</p></div>
+            <span class="count-badge">{{ categories|length }}</span>
+          </div>
+          {% if categories %}
+            <div class="category-admin-list">
+              {% for category in categories %}
+                <div class="category-admin-row">
+                  <div><strong>{{ category.name }}</strong><small>{{ category.products|length }} منتج</small></div>
+                  <form method="post" action="{{ url_for('modules.delete_category', category_id=category.id) }}" onsubmit="return confirm('متأكد إنك عايز تمسح القسم ده؟ المنتجات هتفضل في المتجر.');">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                    <button class="text-button" type="submit">امسح</button>
+                  </form>
+                </div>
+              {% endfor %}
+            </div>
+          {% else %}
+            <div class="empty-products"><strong>لسه مفيش أقسام.</strong><span>ضيف قسم علشان ترتّب منتجاتك.</span></div>
+          {% endif %}
+          <form class="category-add-form" method="post" action="{{ url_for('modules.create_category') }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <input name="name" maxlength="80" placeholder="اسم القسم الجديد" aria-label="اسم القسم الجديد" required>
+            <button class="button button-primary button-small" type="submit">ضيف</button>
+          </form>
+        </section>
+
+        <section class="panel">
+          <div class="panel-heading">
+            <div><h2>بيانات الحساب</h2><p>غيّر الإيميل أو الباسورد بتوعك.</p></div>
+          </div>
+          <form class="account-form" method="post" action="{{ url_for('modules.update_admin_account') }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <div class="field">
+              <label for="admin-email">الإيميل</label>
+              <input id="admin-email" name="email" type="email" value="{{ admin.email }}" maxlength="254" dir="ltr" required>
+            </div>
+            <div class="field">
+              <label for="new-password">الباسورد الجديد <span class="field-hint">(اختياري)</span></label>
+              <input id="new-password" name="new_password" type="password" minlength="8" autocomplete="new-password" placeholder="٨ حروف على الأقل" dir="ltr">
+            </div>
+            <div class="field">
+              <label for="current-password">الباسورد الحالي</label>
+              <input id="current-password" name="current_password" type="password" autocomplete="current-password" placeholder="لازم تكتبه علشان تحفظ التغيير" dir="ltr" required>
+            </div>
+            <button class="button button-primary button-small" type="submit">احفظ التغييرات</button>
+          </form>
+        </section>
+      </aside>
+    </div>
+  </main>
+</div>
+{% endblock %}

@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}كلمنا — 3M | elmansygroups{% endblock %}
+{% block body %}
+<div class="announcement">اختيارات على ذوقك · تفاصيل أحلى كل يوم</div>
+<header class="site-header">
+  <div class="container nav">
+    <a class="brand" href="{{ url_for('modules.home') }}" aria-label="الرئيسية - 3M elmansygroups">
+      <img class="site-logo" src="{{ url_for('static', filename='icon/logo.png') }}" alt="3M">
+      <span class="brand-copy"><strong>elmansygroups</strong><small>جودة على قدّ الثقة</small></span>
+    </a>
+    <nav class="nav-links" aria-label="التنقل الرئيسي">
+      <a href="{{ url_for('modules.home') }}">الرئيسية</a>
+      <a href="{{ url_for('modules.home') }}#collection">منتجاتنا</a>
+      <a href="{{ url_for('modules.home') }}#about">حكايتنا</a>
+      <a href="{{ url_for('modules.contact') }}" aria-current="page">كلمنا</a>
+    </nav>
+    <div class="nav-actions">
+      <a class="cart-link" href="{{ url_for('modules.view_cart') }}" aria-label="سلة المشتريات، {{ cart_count }} منتجات">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 4h2l2.1 10.1a2 2 0 0 0 2 1.6h8.7a2 2 0 0 0 2-1.6L21 8H6"/><circle cx="10" cy="20" r="1.25"/><circle cx="18" cy="20" r="1.25"/></svg>
+        <span>السلة</span><span class="cart-count">{{ cart_count }}</span>
+      </a>
+      <a class="nav-admin" href="{{ url_for('modules.admin_login') }}"><span>تسجيل الدخول</span></a>
+      <button class="menu-toggle" type="button" aria-label="افتح القائمة" aria-expanded="false" aria-controls="site-navigation">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </div>
+  <nav class="mobile-nav-links" id="site-navigation" aria-label="التنقل الرئيسي">
+    <a href="{{ url_for('modules.home') }}">الرئيسية</a>
+    <a href="{{ url_for('modules.home') }}#collection">منتجاتنا</a>
+    <a href="{{ url_for('modules.home') }}#about">حكايتنا</a>
+    <a href="{{ url_for('modules.contact') }}" aria-current="page">كلمنا</a>
+  </nav>
+</header>
+
+<main class="container contact-page">
+  <section class="contact-intro reveal">
+    <span class="eyebrow">إحنا هنا علشانك</span>
+    <h1>حابب تسأل عن حاجة؟<br><span>كلمنا وإحنا نساعدك.</span></h1>
+    <p>سيب لنا رسالتك وهنرجعلك في أقرب وقت. أو ابعتلنا على واتساب لو محتاج رد أسرع.</p>
+    <a class="button button-light" href="https://wa.me/message/VDSCLAQZWEMYH1" target="_blank" rel="noopener noreferrer">راسلنا على واتساب ↗</a>
+  </section>
+
+  <section class="contact-layout reveal">
+    <div class="contact-details">
+      <span class="eyebrow">يسعدنا نسمع منك</span>
+      <h2>خلّينا نساعدك تلاقي اللي بتدور عليه.</h2>
+      <p>عندك استفسار عن منتج أو طلب؟ ابعتلنا، وفريقنا هيرد عليك.</p>
+      <a class="contact-email" href="mailto:elmansygroups@gmail.com">elmansygroups@gmail.com</a>
+      <span class="contact-note">بنرد عليك في أقرب وقت خلال مواعيد العمل.</span>
+    </div>
+    <div class="panel contact-form-panel">
+      <h2>ابعتلنا رسالة</h2>
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <div class="flash-messages">
+            {% for category, message in messages %}
+              <div class="flash {{ category }}">{{ message }}</div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+      <form class="contact-form" method="post" action="{{ url_for('modules.contact') }}">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <div class="field">
+          <label for="contact-name">اسمك</label>
+          <input id="contact-name" name="name" maxlength="120" autocomplete="name" placeholder="اكتب اسمك" value="{{ form_data.name }}" required>
+        </div>
+        <div class="field">
+          <label for="contact-email">الإيميل</label>
+          <input id="contact-email" name="email" type="email" maxlength="254" autocomplete="email" dir="ltr" placeholder="name@example.com" value="{{ form_data.email }}" required>
+        </div>
+        <div class="field">
+          <label for="contact-phone">رقم الموبايل <span class="field-hint">(اختياري)</span></label>
+          <input id="contact-phone" name="phone" type="tel" maxlength="24" autocomplete="tel" inputmode="tel" dir="ltr" placeholder="01xxxxxxxxx" value="{{ form_data.phone }}">
+        </div>
+        <div class="field">
+          <label for="contact-message">رسالتك</label>
+          <textarea id="contact-message" name="message" maxlength="3000" placeholder="اكتب لنا محتاج إيه..." required>{{ form_data.message }}</textarea>
+        </div>
+        <button class="button button-primary" type="submit">ابعت الرسالة <span aria-hidden="true">←</span></button>
+      </form>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="container footer-inner">
+    <a class="brand" href="{{ url_for('modules.home') }}">
+      <span class="brand-mark">3M</span>
+      <span class="brand-copy"><strong>elmansygroups</strong><small>جودة على قدّ الثقة</small></span>
+    </a>
+    <span class="footer-note">© {{ now_year }} 3M | elmansygroups. كل الحقوق محفوظة.</span>
+    <div class="footer-social">
+      <a class="footer-link" href="mailto:elmansygroups@gmail.com">كلّمنا</a>
+      <a class="footer-link" href="mailto:mahmoudhamay8@gmail.com" aria-label="الدعم والملاحظات عبر البريد الإلكتروني">الدعم والملاحظات</a>
+    </div>
+  </div>
+</footer>
+{% endblock %}
