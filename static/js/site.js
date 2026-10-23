@@ -231,10 +231,11 @@ document.querySelectorAll("[data-photo-showcase]").forEach((track) => {
   const scrollToSlide = (index) => {
     activeIndex = Math.max(0, Math.min(slides.length - 1, index));
     updateStatus();
-    slides[activeIndex].scrollIntoView({
+    const trackCenter = track.getBoundingClientRect().left + track.clientWidth / 2;
+    const slideCenter = slides[activeIndex].getBoundingClientRect().left + slides[activeIndex].clientWidth / 2;
+    track.scrollBy({
+      left: slideCenter - trackCenter,
       behavior: prefersReducedMotion ? "auto" : "smooth",
-      block: "nearest",
-      inline: "center",
     });
   };
   const stopAutoplay = () => {
