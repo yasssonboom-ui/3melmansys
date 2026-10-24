@@ -13,6 +13,7 @@ from flask import (
     abort,
     current_app,
     flash,
+    jsonify,
     redirect,
     render_template,
     request,
@@ -21,7 +22,7 @@ from flask import (
 )
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, Numeric, String, Text, create_engine, func, inspect, select
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import declarative_base, relationship, sessionmaker
+from sqlalchemy.orm import declarative_base, relationship, selectinload, sessionmaker
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 
@@ -148,13 +149,6 @@ class ProductImage(Base):
     product = relationship("Product", back_populates="images")
 
 
-class ShowcaseImage(Base):
-    __tablename__ = "showcase_images"
-
-    id = Column(Integer, primary_key=True)
-    image_url = Column(String(500), nullable=False)
-
-
 class CartAddition(Base):
     __tablename__ = "cart_additions"
 
@@ -222,12 +216,13 @@ def csrf_token():
 
 @modules.context_processor
 def inject_template_values():
-    cart = session.get("cart", {})
-    cart_count = sum(int(quantity) for quantity in cart.values() if str(quantity).isdigit())
+    cart_items, cart_total, cart_count = get_cart_contents()
     return {
         "csrf_token": csrf_token,
         "now_year": datetime.now().year,
         "cart_count": cart_count,
+        "cart_items": cart_items,
+        "cart_total": cart_total,
     }
 
 
@@ -329,17 +324,33 @@ def parse_uploaded_image(image_file):
     return f"{uuid.uuid4().hex}{extension}"
 
 
+def get_showcase_slides(db):
+    products = db.scalars(
+        select(Product)
+        .order_by(Product.id.desc())
+        .options(selectinload(Product.images))
+    )
+    return [
+        {
+            "image_url": product.gallery_images[0],
+            "product": product,
+        }
+        for product in products
+        if product.gallery_images
+    ]
+
+
 @modules.get("/")
 def home():
     with SessionLocal() as db:
         categories = db.scalars(select(Category).order_by(Category.name)).all()
         products = db.scalars(select(Product).order_by(Product.id.desc())).all()
-        showcase_images = db.scalars(select(ShowcaseImage).order_by(ShowcaseImage.id)).all()
+        showcase_slides = get_showcase_slides(db)
         return render_template(
             "index.html",
             categories=categories,
             products=products,
-            showcase_images=showcase_images,
+            showcase_slides=showcase_slides,
         )
 
 
@@ -362,10 +373,12 @@ def category_page(category_id):
         products = db.scalars(
             select(Product).where(Product.category_id == category_id).order_by(Product.id.desc())
         ).all()
+        showcase_slides = get_showcase_slides(db)
         return render_template(
             "index.html",
             categories=categories,
             products=products,
+            showcase_slides=showcase_slides,
             active_category=category,
         )
 
@@ -406,6 +419,10 @@ def contact():
 
 @modules.get("/cart")
 def view_cart():
+    return redirect(url_for("modules.home", _anchor="cart"))
+
+
+def get_cart_contents():
     cart = session.get("cart", {})
     product_ids = []
     for product_id in cart:
@@ -413,7 +430,11 @@ def view_cart():
         if parsed_product_id is not None:
             product_ids.append(parsed_product_id)
     with SessionLocal() as db:
-        products = db.scalars(select(Product).where(Product.id.in_(product_ids))).all() if product_ids else []
+        products = db.scalars(
+            select(Product)
+            .where(Product.id.in_(product_ids))
+            .options(selectinload(Product.images), selectinload(Product.category))
+        ).all() if product_ids else []
         products_by_id = {product.id: product for product in products}
         cart_items = []
         valid_cart = {}
@@ -447,17 +468,36 @@ def view_cart():
             })
         if valid_cart != cart:
             session["cart"] = valid_cart
-        return render_template("cart.html", cart_items=cart_items, cart_total=total)
+        cart_count = sum(item["quantity"] for item in cart_items)
+        return cart_items, total, cart_count
+
+
+@modules.get("/cart/contents")
+def cart_contents():
+    cart_items, cart_total, cart_count = get_cart_contents()
+    return jsonify(
+        success=True,
+        cart_count=cart_count,
+        html=render_template(
+            "_cart_contents.html",
+            cart_items=cart_items,
+            cart_total=cart_total,
+            cart_count=cart_count,
+        ),
+    )
 
 
 @modules.post("/cart/add/<int:product_id>")
 def add_to_cart(product_id):
+    is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest"
     with SessionLocal() as db:
         product = db.get(Product, product_id)
         if product is None:
             abort(404)
         selected_options = selected_product_options(product, request.form)
         if selected_options is None:
+            if is_ajax:
+                return jsonify(success=False, message="اختار كل مواصفات المنتج الأول."), 400
             flash("اختار كل مواصفات المنتج الأول.", "error")
             return redirect(url_for("modules.product_detail", product_id=product_id))
         cart = session.get("cart", {})
@@ -468,10 +508,15 @@ def add_to_cart(product_id):
         except (TypeError, ValueError):
             current_quantity = 0
         if current_quantity >= 99:
-            flash("وصلت للحد الأقصى من المنتج ده في السلة.", "error")
+            success = False
+            message = "وصلت للحد الأقصى من المنتج ده في السلة."
+            if not is_ajax:
+                flash(message, "error")
         else:
             cart[cart_key] = current_quantity + 1
             session["cart"] = cart
+            success = True
+            message = f'ضفنا "{product.name}" لسلتك.'
             visitor_id = session.get("cart_visitor_id")
             if visitor_id is None:
                 visitor_id = uuid.uuid4().hex
@@ -479,7 +524,21 @@ def add_to_cart(product_id):
             if db.get(CartAddition, visitor_id) is None:
                 db.add(CartAddition(visitor_id=visitor_id))
                 db.commit()
-            flash(f'ضفنا "{product.name}" لسلتك.', "success")
+            if not is_ajax:
+                flash(message, "success")
+    if is_ajax:
+        cart_items, cart_total, cart_count = get_cart_contents()
+        return jsonify(
+            success=success,
+            message=message,
+            cart_count=cart_count,
+            html=render_template(
+                "_cart_contents.html",
+                cart_items=cart_items,
+                cart_total=cart_total,
+                cart_count=cart_count,
+            ),
+        ), (200 if success else 409)
     next_url = request.form.get("next", "")
     if next_url.startswith("/") and not next_url.startswith("//") and "\\" not in next_url:
         return redirect(next_url)
@@ -488,12 +547,17 @@ def add_to_cart(product_id):
 
 @modules.post("/cart/update")
 def update_cart_item():
+    is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest"
     try:
         quantity = int(request.form.get("quantity", ""))
     except ValueError:
+        if is_ajax:
+            return jsonify(success=False, message="اختار كمية صحيحة."), 400
         flash("اختار كمية صحيحة.", "error")
         return redirect(url_for("modules.view_cart"))
     if quantity < 0 or quantity > 99:
+        if is_ajax:
+            return jsonify(success=False, message="الكمية لازم تكون من صفر لـ 99."), 400
         flash("الكمية لازم تكون من صفر لـ 99.", "error")
         return redirect(url_for("modules.view_cart"))
     cart = session.get("cart", {})
@@ -501,15 +565,31 @@ def update_cart_item():
     if not key:
         key = request.form.get("product_id", "")
     if key not in cart:
+        if is_ajax:
+            return jsonify(success=False, message="المنتج ده مش موجود في سلتك."), 409
         flash("المنتج ده مش موجود في سلتك.", "error")
         return redirect(url_for("modules.view_cart"))
     if quantity == 0:
         cart.pop(key)
-        flash("شيلنا المنتج من السلة.", "success")
+        message = "شيلنا المنتج من السلة."
     else:
         cart[key] = quantity
-        flash("حدّثنا الكمية في السلة.", "success")
+        message = "حدّثنا الكمية في السلة."
     session["cart"] = cart
+    if is_ajax:
+        cart_items, cart_total, cart_count = get_cart_contents()
+        return jsonify(
+            success=True,
+            message=message,
+            cart_count=cart_count,
+            html=render_template(
+                "_cart_contents.html",
+                cart_items=cart_items,
+                cart_total=cart_total,
+                cart_count=cart_count,
+            ),
+        )
+    flash(message, "success")
     return redirect(url_for("modules.view_cart"))
 
 
@@ -685,7 +765,6 @@ def admin_dashboard():
     with SessionLocal() as db:
         categories = db.scalars(select(Category).order_by(Category.name)).all()
         products = db.scalars(select(Product).order_by(Product.id.desc())).all()
-        showcase_images = db.scalars(select(ShowcaseImage).order_by(ShowcaseImage.id)).all()
         customer_orders = db.scalars(
             select(CustomerOrder).order_by(CustomerOrder.created_at.desc(), CustomerOrder.id.desc())
         ).all()
@@ -705,7 +784,6 @@ def admin_dashboard():
             "admin/dashboard.html",
             categories=categories,
             products=products,
-            showcase_images=showcase_images,
             customer_orders=customer_orders,
             contact_messages=contact_messages,
             order_status_labels={
@@ -717,80 +795,6 @@ def admin_dashboard():
             admin=admin,
             dashboard_stats=dashboard_stats,
         )
-
-
-@modules.post("/admin/showcase")
-@admin_required
-def add_showcase_images():
-    image_files = [image for image in request.files.getlist("images") if image.filename]
-    if not image_files:
-        flash("اختار صورة واحدة على الأقل علشان تضيفها للمعرض.", "error")
-        return redirect(url_for("modules.admin_dashboard", _anchor="showcase"))
-    if len(image_files) > 8:
-        flash("ارفع 8 صور أو أقل في كل مرة.", "error")
-        return redirect(url_for("modules.admin_dashboard", _anchor="showcase"))
-
-    uploaded_filenames = [parse_uploaded_image(image_file) for image_file in image_files]
-    if any(filename is None for filename in uploaded_filenames):
-        flash("كل الصور لازم تكون JPG أو PNG أو GIF أو WEBP، وحجم الصورة الواحدة 5 ميجابايت أو أقل.", "error")
-        return redirect(url_for("modules.admin_dashboard", _anchor="showcase"))
-
-    upload_directory = os.path.join(current_app.static_folder, "uploads")
-    os.makedirs(upload_directory, exist_ok=True)
-    saved_paths = []
-    try:
-        with SessionLocal() as db:
-            for image_file, filename in zip(image_files, uploaded_filenames):
-                upload_path = os.path.join(upload_directory, filename)
-                image_file.save(upload_path)
-                saved_paths.append(upload_path)
-                db.add(ShowcaseImage(image_url=f"/static/uploads/{filename}"))
-            db.commit()
-    except OSError:
-        for upload_path in saved_paths:
-            if os.path.isfile(upload_path):
-                os.remove(upload_path)
-        current_app.logger.exception("Could not save an image for the storefront showcase")
-        flash("ماقدرناش نحفظ الصور. جرّب تاني.", "error")
-        return redirect(url_for("modules.admin_dashboard", _anchor="showcase"))
-    except SQLAlchemyError:
-        for upload_path in saved_paths:
-            if os.path.isfile(upload_path):
-                os.remove(upload_path)
-        raise
-
-    flash(f"ضفنا {len(image_files)} صورة لمعرض الصور.", "success")
-    return redirect(url_for("modules.admin_dashboard", _anchor="showcase"))
-
-
-@modules.post("/admin/showcase/<int:image_id>/delete")
-@admin_required
-def delete_showcase_image(image_id):
-    with SessionLocal() as db:
-        image = db.get(ShowcaseImage, image_id)
-        if image is None:
-            abort(404)
-        image_url = image.image_url
-        db.delete(image)
-        db.commit()
-
-    if image_url.startswith("/static/uploads/"):
-        uploaded_filename = os.path.basename(image_url)
-        upload_path = os.path.join(current_app.static_folder, "uploads", uploaded_filename)
-        if os.path.isfile(upload_path):
-            try:
-                os.remove(upload_path)
-            except OSError:
-                current_app.logger.warning(
-                    "Could not remove a deleted storefront showcase image: %s",
-                    uploaded_filename,
-                    exc_info=True,
-                )
-                flash("اتحذفت الصورة من المعرض، لكن ماقدرناش نمسح ملفها من التخزين.", "error")
-                return redirect(url_for("modules.admin_dashboard", _anchor="showcase"))
-
-    flash("اتحذفت الصورة من المعرض.", "success")
-    return redirect(url_for("modules.admin_dashboard", _anchor="showcase"))
 
 
 @modules.post("/admin/categories")

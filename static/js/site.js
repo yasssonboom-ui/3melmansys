@@ -1,5 +1,139 @@
 const menuToggle = document.querySelector(".menu-toggle");
 const mobileNavigation = document.querySelector(".mobile-nav-links");
+const cartDialog = document.querySelector("[data-cart-dialog]");
+const cartDialogContent = cartDialog?.querySelector("[data-cart-dialog-content]");
+const cartDialogStatus = cartDialog?.querySelector("[data-cart-dialog-status]");
+
+const cartFeedback = document.createElement("div");
+cartFeedback.className = "cart-feedback";
+cartFeedback.setAttribute("role", "status");
+cartFeedback.setAttribute("aria-live", "polite");
+cartFeedback.setAttribute("aria-atomic", "true");
+document.body.append(cartFeedback);
+
+let cartFeedbackTimer;
+const showCartFeedback = (message, isError = false) => {
+  cartFeedback.textContent = message;
+  cartFeedback.classList.toggle("is-error", isError);
+  cartFeedback.classList.add("is-visible");
+  window.clearTimeout(cartFeedbackTimer);
+  cartFeedbackTimer = window.setTimeout(() => cartFeedback.classList.remove("is-visible"), 2600);
+};
+
+const updateCartCount = (cartCount) => {
+  document.querySelectorAll(".cart-count").forEach((count) => {
+    count.textContent = cartCount;
+    count.classList.remove("is-updated");
+    void count.offsetWidth;
+    count.classList.add("is-updated");
+  });
+  document.querySelectorAll(".cart-link").forEach((link) => {
+    link.setAttribute("aria-label", `سلة المشتريات، ${cartCount} منتجات`);
+  });
+};
+
+const showCartDialogStatus = (message, isError = false) => {
+  if (!cartDialogStatus) return;
+  cartDialogStatus.textContent = message;
+  cartDialogStatus.hidden = !message;
+  cartDialogStatus.classList.toggle("is-error", isError);
+};
+
+document.addEventListener("click", (event) => {
+  const cartLink = event.target.closest(".cart-link");
+  if (!cartLink || !cartDialog || typeof cartDialog.showModal !== "function") return;
+
+  event.preventDefault();
+  if (!cartDialog.open) cartDialog.showModal();
+  showCartDialogStatus("");
+});
+
+cartDialog?.querySelector("[data-cart-close]")?.addEventListener("click", () => cartDialog.close());
+cartDialog?.addEventListener("click", (event) => {
+  if (event.target === cartDialog) cartDialog.close();
+});
+cartDialog?.addEventListener("submit", async (event) => {
+  const form = event.target;
+  if (!(form instanceof HTMLFormElement) || !form.matches("[data-cart-update]")) return;
+
+  event.preventDefault();
+  const submitter = event.submitter;
+  if (submitter instanceof HTMLButtonElement) submitter.disabled = true;
+
+  try {
+    const response = await fetch(form.action, {
+      method: "POST",
+      body: new FormData(form),
+      headers: { "X-Requested-With": "XMLHttpRequest" },
+    });
+    const result = await response.json();
+    if (!response.ok || !result.success) {
+      throw new Error(result.message || "تعذر تحديث السلة.");
+    }
+    cartDialogContent.innerHTML = result.html;
+    updateCartCount(result.cart_count);
+    showCartDialogStatus(result.message);
+  } catch (error) {
+    showCartDialogStatus(error.message || "تعذر تحديث السلة. حاول مرة تانية.", true);
+  } finally {
+    if (submitter instanceof HTMLButtonElement) submitter.disabled = false;
+  }
+});
+
+if (window.location.hash === "#cart" && cartDialog && typeof cartDialog.showModal === "function") {
+  cartDialog.showModal();
+}
+
+document.addEventListener("submit", async (event) => {
+  const form = event.target;
+  if (!(form instanceof HTMLFormElement) || !form.matches(".product-purchase-form, .product-detail-purchase")) return;
+  const submitter = event.submitter;
+  if (submitter && !submitter.hasAttribute("data-add-to-cart")) return;
+  const button = submitter || form.querySelector("[data-add-to-cart]");
+
+  event.preventDefault();
+  if (!(button instanceof HTMLButtonElement) || button.disabled) return;
+
+  const originalButtonContent = button.innerHTML;
+  button.disabled = true;
+  button.textContent = "بنضيف للسلة...";
+  button.classList.remove("is-added");
+
+  try {
+    const response = await fetch(form.action, {
+      method: "POST",
+      body: new FormData(form),
+      headers: { "X-Requested-With": "XMLHttpRequest" },
+    });
+    const result = await response.json();
+    if (!response.ok || !result.success) {
+      showCartFeedback(result.message || "حصلت مشكلة وإحنا بنضيف المنتج للسلة.", true);
+      return;
+    }
+
+    updateCartCount(result.cart_count);
+    if (cartDialogContent && result.html) cartDialogContent.innerHTML = result.html;
+    button.classList.add("is-added");
+    showCartFeedback(result.message);
+  } catch {
+    showCartFeedback("تعذر الاتصال. حاول تضيف المنتج للسلة مرة تانية.", true);
+  } finally {
+    button.disabled = false;
+    button.innerHTML = originalButtonContent;
+  }
+});
+
+document.querySelectorAll("[data-product-url]").forEach((card) => {
+  const navigateToProduct = (event) => {
+    if (event.target.closest("a, button, input, select, textarea, summary, form, label")) return;
+    if (event.type === "keydown" && event.key !== "Enter") return;
+    if (event.type === "keydown") event.preventDefault();
+    window.location.assign(card.dataset.productUrl);
+  };
+
+  card.addEventListener("click", navigateToProduct);
+  card.addEventListener("keydown", navigateToProduct);
+});
 
 const revealElements = document.querySelectorAll(".reveal");
 const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;

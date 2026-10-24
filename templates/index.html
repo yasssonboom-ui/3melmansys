@@ -54,22 +54,25 @@
     </div>
   </section>
 
-  {% if showcase_images %}
-    <section class="container photo-showcase reveal" aria-label="صور من اختيارات 3M">
+  {% if showcase_slides %}
+    <section class="container photo-showcase reveal" aria-label="صور ومنتجات 3M">
       <div class="photo-showcase-heading">
         <div>
-          <h2>مميز</h2>
+          <h2>صورنا ومنتجاتنا</h2>
         </div>
-        {% if showcase_images|length > 1 %}
+        {% if showcase_slides|length > 1 %}
           <div class="photo-showcase-controls">
-            <span data-showcase-status aria-live="polite">1 / {{ showcase_images|length }}</span>
+            <span data-showcase-status aria-live="polite">1 / {{ showcase_slides|length }}</span>
           </div>
         {% endif %}
       </div>
       <div class="photo-showcase-track" data-photo-showcase tabindex="0" aria-label="اسحب أو استخدم الأسهم للتنقل بين الصور">
-        {% for image in showcase_images %}
+        {% for slide in showcase_slides %}
           <div class="photo-showcase-item" role="group" aria-label="الصورة {{ loop.index }} من {{ loop.length }}">
-            <img src="{{ image.image_url }}" alt="صورة من اختيارات 3M" loading="lazy" decoding="async">
+            <a class="photo-showcase-product" href="{{ url_for('modules.product_detail', product_id=slide.product.id) }}" aria-label="تفاصيل {{ slide.product.name }}">
+              <img src="{{ slide.image_url }}" alt="{{ slide.product.name }}" loading="lazy" decoding="async">
+              <span class="photo-showcase-product-name">{{ slide.product.name }} <span aria-hidden="true">←</span></span>
+            </a>
           </div>
         {% endfor %}
       </div>
@@ -101,7 +104,7 @@
     {% if products %}
       <div class="product-grid">
         {% for product in products %}
-          <article class="product-card reveal">
+          <article class="product-card reveal" data-product-url="{{ url_for('modules.product_detail', product_id=product.id) }}" role="link" tabindex="0" aria-label="تفاصيل {{ product.name }}">
             <div class="product-photo">
               {% if product.gallery_images %}
                 <div class="product-gallery" data-product-gallery aria-label="صور {{ product.name }}">
@@ -150,7 +153,7 @@
                   </label>
                 {% endfor %}
                 <div class="product-purchase-actions">
-                  <button class="button button-primary add-to-cart-button" type="submit" formaction="{{ url_for('modules.add_to_cart', product_id=product.id) }}">
+                  <button class="button button-primary add-to-cart-button" type="submit" data-add-to-cart formaction="{{ url_for('modules.add_to_cart', product_id=product.id) }}">
                     <span aria-hidden="true">+</span> ضيف للسلة
                   </button>
                   <a class="button button-light add-to-cart-button" href="{{ url_for('modules.product_detail', product_id=product.id) }}">اطلب دلوقتي</a>

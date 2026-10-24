@@ -105,7 +105,7 @@
           </label>
         {% endfor %}
         <div class="product-detail-actions">
-          <button class="button button-primary" type="submit" formaction="{{ url_for('modules.add_to_cart', product_id=product.id) }}">
+          <button class="button button-primary" type="submit" data-add-to-cart formaction="{{ url_for('modules.add_to_cart', product_id=product.id) }}">
             <span aria-hidden="true">+</span> ضيف للسلة
           </button>
           <button class="button button-light" type="submit" formaction="{{ url_for('modules.buy_now', product_id=product.id) }}">

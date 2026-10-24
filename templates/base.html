@@ -15,7 +15,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@200..1000&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
   {% block head %}{% endblock %}
-  {% if request.endpoint in ['modules.home', 'modules.category_page', 'modules.contact', 'modules.view_cart', 'modules.checkout', 'modules.product_detail'] %}
+  {% if request.endpoint in ['modules.home', 'modules.category_page', 'modules.contact', 'modules.checkout', 'modules.product_detail'] %}
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js" defer></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js" defer></script>
@@ -23,6 +23,18 @@
 </head>
 <body>
   {% block body %}{% endblock %}
+  <dialog class="cart-dialog" data-cart-dialog aria-labelledby="cart-dialog-title">
+    <div class="cart-dialog-panel">
+      <header class="cart-dialog-header">
+        <h2 id="cart-dialog-title">سلة المشتريات</h2>
+        <button class="cart-dialog-close" type="button" data-cart-close aria-label="إغلاق السلة">×</button>
+      </header>
+      <p class="cart-dialog-status" data-cart-dialog-status role="status" aria-live="polite" hidden></p>
+      <div class="cart-dialog-content" data-cart-dialog-content aria-live="polite">
+        {% include "_cart_contents.html" %}
+      </div>
+    </div>
+  </dialog>
   <script src="{{ url_for('static', filename='js/site.js') }}" defer></script>
 </body>
 </html>
