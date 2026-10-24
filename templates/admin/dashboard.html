@@ -77,6 +77,22 @@
             <h2>ابدأ من هنا</h2>
             <p>اختار قسم من القائمة علشان تدير منتجاتك وأقسامك وطلباتك ورسايل العملاء.</p>
           </div>
+          <section
+            class="panel order-push-settings"
+            data-order-push
+            data-public-key="{{ vapid_public_key }}"
+            data-subscribe-url="{{ url_for('modules.subscribe_to_order_push') }}"
+            data-unsubscribe-url="{{ url_for('modules.unsubscribe_from_order_push') }}"
+            data-csrf-token="{{ csrf_token() }}"
+          >
+            <h2>إشعارات الطلبات على الموبايل</h2>
+            <p data-order-push-status role="status" aria-live="polite">
+              {% if push_configured %}فعّل الإشعارات على هذا الجهاز لاستقبال تنبيه عند وصول طلب جديد. يتطلب ذلك اتصالاً آمناً HTTPS.{% else %}إعدادات إشعارات الدفع غير مكتملة. يحتاج الموقع إلى مفاتيح VAPID لتفعيلها.{% endif %}
+            </p>
+            <button class="button button-primary" type="button" data-order-push-toggle{% if not push_configured %} disabled{% endif %}>
+              فعّل إشعارات الطلبات
+            </button>
+          </section>
         </section>
 
         <section class="admin-section" id="products" data-dashboard-section="products">

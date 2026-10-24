@@ -501,3 +501,92 @@ if (dashboardSections.length && dashboardLinks.length) {
     });
   }
 }
+
+const orderPushSettings = document.querySelector("[data-order-push]");
+if (orderPushSettings) {
+  const pushToggle = orderPushSettings.querySelector("[data-order-push-toggle]");
+  const pushStatus = orderPushSettings.querySelector("[data-order-push-status]");
+  let currentPushSubscription;
+
+  const setPushStatus = (message, isError = false) => {
+    pushStatus.textContent = message;
+    pushStatus.classList.toggle("is-error", isError);
+  };
+  const decodeVapidKey = (key) => {
+    const padding = "=".repeat((4 - key.length % 4) % 4);
+    const base64 = (key + padding).replace(/-/g, "+").replace(/_/g, "/");
+    return Uint8Array.from(atob(base64), (character) => character.charCodeAt(0));
+  };
+  const submitPushSubscription = async (url, fields) => {
+    const body = new URLSearchParams({
+      _csrf_token: orderPushSettings.dataset.csrfToken,
+      ...fields,
+    });
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body,
+    });
+    const result = await response.json();
+    if (!response.ok || !result.success) {
+      throw new Error(result.message || "تعذر تحديث إعدادات الإشعارات.");
+    }
+    return result;
+  };
+
+  if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
+    pushToggle.disabled = true;
+    setPushStatus("المتصفح على هذا الجهاز لا يدعم إشعارات المواقع.", true);
+  } else if (!orderPushSettings.dataset.publicKey) {
+    pushToggle.disabled = true;
+  } else {
+    navigator.serviceWorker.register("/service-worker.js")
+      .then((registration) => registration.pushManager.getSubscription())
+      .then((subscription) => {
+        currentPushSubscription = subscription;
+        pushToggle.textContent = subscription ? "إيقاف إشعارات هذا الجهاز" : "فعّل إشعارات الطلبات";
+        if (subscription) setPushStatus("إشعارات الطلبات مفعّلة على هذا الجهاز.");
+      })
+      .catch((error) => {
+        pushToggle.disabled = true;
+        setPushStatus(error.message || "تعذر تجهيز إشعارات هذا الجهاز.", true);
+      });
+
+    pushToggle.addEventListener("click", async () => {
+      pushToggle.disabled = true;
+      try {
+        const registration = await navigator.serviceWorker.ready;
+        if (currentPushSubscription) {
+          await submitPushSubscription(orderPushSettings.dataset.unsubscribeUrl, {
+            endpoint: currentPushSubscription.endpoint,
+          });
+          await currentPushSubscription.unsubscribe();
+          currentPushSubscription = null;
+          setPushStatus("تم إيقاف إشعارات الطلبات على هذا الجهاز.");
+          pushToggle.textContent = "فعّل إشعارات الطلبات";
+          return;
+        }
+
+        let permission = Notification.permission;
+        if (permission === "default") permission = await Notification.requestPermission();
+        if (permission !== "granted") {
+          throw new Error("اسمح للموقع بإرسال الإشعارات من إعدادات المتصفح.");
+        }
+
+        currentPushSubscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: decodeVapidKey(orderPushSettings.dataset.publicKey),
+        });
+        const result = await submitPushSubscription(orderPushSettings.dataset.subscribeUrl, {
+          subscription: JSON.stringify(currentPushSubscription),
+        });
+        setPushStatus(result.message);
+        pushToggle.textContent = "إيقاف إشعارات هذا الجهاز";
+      } catch (error) {
+        setPushStatus(error.message || "تعذر تفعيل إشعارات الطلبات.", true);
+      } finally {
+        pushToggle.disabled = false;
+      }
+    });
+  }
+}

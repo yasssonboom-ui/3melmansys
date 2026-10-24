@@ -164,6 +164,15 @@ class Admin(Base):
     password_hash = Column(String(256), nullable=False)
 
 
+class PushSubscription(Base):
+    __tablename__ = "push_subscriptions"
+
+    id = Column(Integer, primary_key=True)
+    admin_id = Column(Integer, ForeignKey("admins.id", ondelete="CASCADE"), nullable=False)
+    endpoint = Column(Text, nullable=False, unique=True)
+    subscription_json = Column(Text, nullable=False)
+
+
 class ContactMessage(Base):
     __tablename__ = "contact_messages"
 
@@ -610,6 +619,48 @@ def buy_now(product_id):
     ))
 
 
+def send_order_push_notifications(order):
+    private_key = os.environ.get("VAPID_PRIVATE_KEY", "").strip()
+    subject = os.environ.get("VAPID_SUBJECT", "").strip()
+
+    from pywebpush import WebPushException, webpush
+
+    payload = json.dumps({
+        "title": "طلب جديد",
+        "body": f"وصلك طلب جديد رقم {order.reference}.",
+        "url": url_for("modules.admin_dashboard", _anchor="orders"),
+    }, ensure_ascii=False)
+    with SessionLocal() as db:
+        subscriptions = db.scalars(select(PushSubscription)).all()
+        if not subscriptions:
+            return
+        if not os.environ.get("VAPID_PUBLIC_KEY", "").strip() or not private_key or not subject:
+            current_app.logger.warning("Order push notifications are not configured; set VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, and VAPID_SUBJECT.")
+            return
+        for subscription in subscriptions:
+            try:
+                webpush(
+                    subscription_info=json.loads(subscription.subscription_json),
+                    data=payload,
+                    vapid_private_key=private_key,
+                    vapid_claims={"sub": subject},
+                    timeout=5,
+                )
+            except WebPushException as error:
+                response = getattr(error, "response", None)
+                status_code = getattr(response, "status_code", None)
+                if status_code in (404, 410):
+                    db.delete(subscription)
+                current_app.logger.warning(
+                    "Could not send order push notification (HTTP %s).",
+                    status_code or "unknown",
+                    exc_info=True,
+                )
+            except (ValueError, TypeError):
+                current_app.logger.exception("Stored order push subscription is invalid.")
+        db.commit()
+
+
 @modules.route("/checkout", methods=["GET", "POST"])
 def checkout():
     raw_product_id = request.values.get("product_id", "").strip()
@@ -715,6 +766,7 @@ def checkout():
                     )
                 db.add(purchase)
                 db.commit()
+                send_order_push_notifications(purchase)
                 if direct_product_id is None:
                     session["cart"] = {}
                 return render_template("order_success.html", order=purchase)
@@ -794,7 +846,75 @@ def admin_dashboard():
             },
             admin=admin,
             dashboard_stats=dashboard_stats,
+            vapid_public_key=os.environ.get("VAPID_PUBLIC_KEY", "").strip(),
+            push_configured=all(
+                os.environ.get(key, "").strip()
+                for key in ("VAPID_PUBLIC_KEY", "VAPID_PRIVATE_KEY", "VAPID_SUBJECT")
+            ),
         )
+
+
+@modules.get("/service-worker.js")
+def push_service_worker():
+    response = current_app.send_static_file("service-worker.js")
+    response.headers["Service-Worker-Allowed"] = "/"
+    return response
+
+
+@modules.post("/admin/push/subscribe")
+@admin_required
+def subscribe_to_order_push():
+    try:
+        subscription = json.loads(request.form.get("subscription", ""))
+    except json.JSONDecodeError:
+        return jsonify(success=False, message="بيانات الإشعارات غير صحيحة."), 400
+    if not isinstance(subscription, dict):
+        return jsonify(success=False, message="بيانات الإشعارات غير صحيحة."), 400
+
+    endpoint = subscription.get("endpoint")
+    keys = subscription.get("keys")
+    if (
+        not isinstance(endpoint, str)
+        or not endpoint.startswith("https://")
+        or len(endpoint) > 4096
+        or not isinstance(keys, dict)
+        or not isinstance(keys.get("p256dh"), str)
+        or not isinstance(keys.get("auth"), str)
+    ):
+        return jsonify(success=False, message="بيانات الإشعارات غير مكتملة."), 400
+    if not all(os.environ.get(key, "").strip() for key in ("VAPID_PUBLIC_KEY", "VAPID_PRIVATE_KEY", "VAPID_SUBJECT")):
+        return jsonify(success=False, message="إعدادات إشعارات الطلبات غير مكتملة على الموقع."), 503
+
+    with SessionLocal() as db:
+        existing = db.scalar(select(PushSubscription).where(PushSubscription.endpoint == endpoint))
+        if existing is None:
+            db.add(PushSubscription(
+                admin_id=session["admin_id"],
+                endpoint=endpoint,
+                subscription_json=json.dumps(subscription),
+            ))
+        else:
+            existing.admin_id = session["admin_id"]
+            existing.subscription_json = json.dumps(subscription)
+        db.commit()
+    return jsonify(success=True, message="تم تفعيل إشعارات الطلبات على هذا الجهاز.")
+
+
+@modules.post("/admin/push/unsubscribe")
+@admin_required
+def unsubscribe_from_order_push():
+    endpoint = request.form.get("endpoint", "")
+    if not endpoint:
+        return jsonify(success=False, message="بيانات الجهاز غير مكتملة."), 400
+    with SessionLocal() as db:
+        subscription = db.scalar(select(PushSubscription).where(
+            PushSubscription.endpoint == endpoint,
+            PushSubscription.admin_id == session["admin_id"],
+        ))
+        if subscription is not None:
+            db.delete(subscription)
+            db.commit()
+    return jsonify(success=True, message="تم إيقاف إشعارات الطلبات على هذا الجهاز.")
 
 
 @modules.post("/admin/categories")
